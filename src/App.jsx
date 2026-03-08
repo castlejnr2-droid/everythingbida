@@ -14,10 +14,10 @@ const getTagColor = (type) => {
 
 const linkifyText = (text) => {
   if (!text) return "";
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const urlRegex = /(https?:\/\/[^\s]+|(?:www\.|(?:vm\.)?tiktok\.com)[^\s]+)/gi;
   return text.split(urlRegex).map((part, index) =>
     part.match(urlRegex) ? (
-      <a key={index} href={part} target="_blank" rel="noopener noreferrer"
+      <a key={index} href={/^https?:\/\//i.test(part) ? part : "https://" + part} target="_blank" rel="noopener noreferrer"
         style={{ color: "#D97706", textDecoration: "underline", wordBreak: "break-all" }}
         onClick={(e) => e.stopPropagation()}>{part}</a>
     ) : part
