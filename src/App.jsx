@@ -110,16 +110,45 @@ const styles = `
   .flex-1 { flex: 1; }
 `;
 
+const API = '/.netlify/functions/api';
+const cloudGet = async (r) => { try { const res = await fetch(API + '?r=' + r); if (res.ok) return await res.json(); } catch(e) { console.warn('Cloud get failed:', r, e); } return null; };
+const cloudSet = async (r, data) => { try { await fetch(API + '?r=' + r, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); } catch(e) { console.warn('Cloud set failed:', r, e); } };
+
+const DEFAULT_PRODUCTS = [
+  { id: 1, name: "Fresh Chicken", type: "chicken", price: 4500, desc: "Farm-fresh whole chicken", image: null },
+  { id: 2, name: "Premium Turkey", type: "turkey", price: 8500, desc: "Locally raised turkey", image: null },
+  { id: 3, name: "Quality Beef", type: "beef", price: 5500, desc: "Prime cut beef", image: null },
+];
+const DEFAULT_BANK = { name: "GTBank", accNum: "0123456789", accName: "EverythingBida Ltd" };
+
 export default function App() {
-  const [products, setProducts] = useState([
-    { id: 1, name: "Fresh Chicken", type: "chicken", price: 4500, desc: "Farm-fresh whole chicken", image: null },
-    { id: 2, name: "Premium Turkey", type: "turkey", price: 8500, desc: "Locally raised turkey", image: null },
-    { id: 3, name: "Quality Beef", type: "beef", price: 5500, desc: "Prime cut beef", image: null },
-  ]);
+  const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
   const [messages, setMessages] = useState([]);
-  const [bank, setBank] = useState({ name: "GTBank", accNum: "0123456789", accName: "EverythingBida Ltd" });
+  const [bank, setBank] = useState(DEFAULT_BANK);
+  const [loaded, setLoaded] = useState(false);
+
+  // Load from cloud on mount
+  useEffect(() => {
+    (async () => {
+      const [p, o, m, b] = await Promise.all([
+        cloudGet('products'), cloudGet('orders'), cloudGet('messages'), cloudGet('bank')
+      ]);
+      if (p && Array.isArray(p)) setProducts(p);
+      if (o && Array.isArray(o)) setOrders(o);
+      if (m && Array.isArray(m)) setMessages(m);
+      if (b && b.name) setBank(b);
+      setLoaded(true);
+    })();
+  }, []);
+
+  // Save to cloud when data changes (skip initial load)
+  const firstRender = useRef(true);
+  useEffect(() => { if (firstRender.current) { firstRender.current = false; return; } if (loaded) cloudSet('products', products); }, [products]);
+  useEffect(() => { if (loaded) cloudSet('orders', orders); }, [orders]);
+  useEffect(() => { if (loaded) cloudSet('messages', messages); }, [messages]);
+  useEffect(() => { if (loaded) cloudSet('bank', bank); }, [bank]);
   const [adminPassword, setAdminPassword] = useState("castle@7035");
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentView, setCurrentView] = useState("shop");

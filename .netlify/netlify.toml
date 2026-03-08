@@ -1,0 +1,30 @@
+functionsDirectory = "C:\\Users\\danie\\.openclaw\\workspace-chaincheff\\everythingbida\\netlify\\functions"
+functionsDirectoryOrigin = "config-v1"
+plugins = []
+headers = []
+redirects = []
+
+[build]
+publish = "C:\\Users\\danie\\.openclaw\\workspace-chaincheff\\everythingbida\\dist"
+publishOrigin = "config"
+commandOrigin = "config"
+command = "npm run build"
+functions = "C:\\Users\\danie\\.openclaw\\workspace-chaincheff\\everythingbida\\netlify\\functions"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]
+
+[functions]
+
+[functions."*"]
