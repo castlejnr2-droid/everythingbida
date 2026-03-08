@@ -128,6 +128,7 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [bank, setBank] = useState(DEFAULT_BANK);
   const [loaded, setLoaded] = useState(false);
+  const canSave = useRef(false);
 
   // Load from cloud on mount
   useEffect(() => {
@@ -140,15 +141,16 @@ export default function App() {
       if (m && Array.isArray(m)) setMessages(m);
       if (b && b.name) setBank(b);
       setLoaded(true);
+      // Enable saving after a short delay to let React settle from the load setState calls
+      setTimeout(() => { canSave.current = true; }, 500);
     })();
   }, []);
 
-  // Save to cloud when data changes (skip initial load)
-  const firstRender = useRef(true);
-  useEffect(() => { if (firstRender.current) { firstRender.current = false; return; } if (loaded) cloudSet('products', products); }, [products]);
-  useEffect(() => { if (loaded) cloudSet('orders', orders); }, [orders]);
-  useEffect(() => { if (loaded) cloudSet('messages', messages); }, [messages]);
-  useEffect(() => { if (loaded) cloudSet('bank', bank); }, [bank]);
+  // Save to cloud when data changes (only after initial load is fully done)
+  useEffect(() => { if (canSave.current) cloudSet('products', products); }, [products]);
+  useEffect(() => { if (canSave.current) cloudSet('orders', orders); }, [orders]);
+  useEffect(() => { if (canSave.current) cloudSet('messages', messages); }, [messages]);
+  useEffect(() => { if (canSave.current) cloudSet('bank', bank); }, [bank]);
   const [adminPassword, setAdminPassword] = useState("castle@7035");
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentView, setCurrentView] = useState("shop");
