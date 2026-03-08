@@ -671,9 +671,7 @@ function LoginModal({ onClose, onLogin, error }) {
           <button className="btn btn-outline flex-1" onClick={onClose}>Cancel</button>
           <button className="btn flex-1" onClick={() => onLogin(password)}>Login</button>
         </div>
-        <p style={{ marginTop: "12px", fontSize: "12px", color: "#92400E", textAlign: "center", background: "#FEF3C7", padding: "8px", borderRadius: "8px" }}>
-          Default password: <strong>castle@7035</strong>
-        </p>
+{/* password hint removed */}
       </div>
     </div>
   );
