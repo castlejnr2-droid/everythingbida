@@ -188,7 +188,8 @@ export default function App() {
   const [showProofModal, setShowProofModal] = useState(null);
 
   const handleLogin = (password) => {
-    if (password === "castle@7035") {
+    // INTERIM — client-side auth removed in Phase 2 (server-side login)
+    if (password === "rK7mX4nJ9wQ2vB8p") {
       setIsAdmin(true); setShowLoginModal(false); setLoginError(""); setCurrentView("admin");
     } else { setLoginError("Incorrect password"); }
   };

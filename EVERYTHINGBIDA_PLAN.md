@@ -113,3 +113,5 @@ Out of scope for v2 (parked): vendor self-service accounts/logins, online card p
 | 2026-07-19 | Plan | — | Plan authored from repo recon; scope agreed |
 | 2026-07-29 | Phase 0 | b58bedd | Plan + roadmap committed; D1–D5 confirmed; push initially blocked by expired PAT, resolved by operator. |
 | 2026-07-29 | Phase 0 | 3929845 | Pre-plan WIP preserved; .netlify/ build artifacts untracked; hosting decision: frontend → Vercel. |
+| 2026-07-29 | Phase 0 | 63fc4b9 | Plan + roadmap synced: Vercel decision recorded, WIP groundwork annotated. |
+| 2026-07-29 | Phase 0 | (this commit) | Interim admin password rotated; Phase 0 complete. |

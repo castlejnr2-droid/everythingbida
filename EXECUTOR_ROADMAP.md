@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 0 — Complete except password rotation. b58bedd + 3929845 on origin/main. Next prompt: rotate hardcoded admin password in App.jsx (D1 interim fix).**
+**Phase 1 — Backend foundation. Phase 0 fully complete (all commits on origin/main). Next: scaffold `everythingbida-backend` repo (Express + Postgres on Railway).**
 
 ---
 
@@ -21,7 +21,7 @@
 - [x] Commit plan docs to origin main — b58bedd (2026-07-29)
 - [x] WIP dirty tree preserved as commit 3929845; .netlify/ build artifacts untracked + gitignored
 - [x] Hosting decision recorded: frontend → Vercel (not Netlify); plan doc synced
-- [ ] Rotate hardcoded admin password in App.jsx — NEXT PROMPT
+- [x] Rotate hardcoded admin password in App.jsx — D1 interim mitigation (2026-07-29)
 
 ### Phase 1 — Backend foundation (`everythingbida-backend`)
 - [ ] Create new repo `everythingbida-backend` (GitHub)
@@ -120,3 +120,9 @@
 - **Hosting decision:** frontend moves from Netlify to Vercel. EVERYTHINGBIDA_PLAN.md synced: Section 2 Frontend line, secrets line, Phase 2 description all updated.
 - EmailJS work in api.mjs confirmed superseded by server-side Resend (Phase 7). Client-side email keys = same class of mistake as D1 (hardcoded secret in bundle).
 - Next: rotate hardcoded admin password `castle@7035` in App.jsx:191 (D1 interim fix).
+
+### 2026-07-29 — Phase 0 final: D1 interim password rotation
+- Replaced leaked password at App.jsx:191 with a new 16-char random value (letters + digits, no ambiguous chars).
+- Comment added above the check: `// INTERIM — client-side auth removed in Phase 2 (server-side login)`
+- Phase 0 now fully complete. All commits on origin/main.
+- Phase 1 is next: scaffold `everythingbida-backend` (Express + Postgres on Railway).
