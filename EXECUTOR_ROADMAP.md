@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 2 — Data migration + frontend cutover. Phase 1 fully complete: backend live at https://everythingbida-backend-production.up.railway.app, all gates green.**
+**Phase 2B — Data migration from Netlify Blobs. Phase 2A complete: full v2 API surface live (commit d9a1479), all 6 probes green. Backend: https://everythingbida-backend-production.up.railway.app**
 
 ---
 
@@ -43,10 +43,16 @@
   - NOTE: SSL required for Railway public proxy (rlwy.net); no SSL for internal private network (.railway.internal)
 
 ### Phase 2 — Data migration + frontend cutover
-- [ ] Write one-off migration script: read Netlify Blobs (products/orders/messages/bank), decode base64 images → `images` table, insert rows
+- [x] **Phase 2A — Full v2 API surface built and live (2026-07-29, commit d9a1479)**
+  - Public: GET /api/products|categories|locations|bank, POST /api/orders (server-side pricing), GET /api/orders/:id, GET+POST /api/orders/:id/messages, POST /api/vendors
+  - Admin: CRUD /api/admin/products|categories|locations|bank, GET /api/admin/orders, PUT …/status (allowlist) + …/paid, GET+PUT /api/admin/vendors(/:id/status)
+  - Location DELETE: deactivates if order-referenced, hard deletes otherwise
+  - Message sender: auto-detected from admin JWT (no separate route)
+  - Permanent test order in DB: EB25793599 (delivered, Test Island, 2×Test Chicken)
+- [ ] **Phase 2B — Data migration script**: read Netlify Blobs (products/orders/messages/bank), decode base64 images → `images` table, insert rows
 - [ ] Run migration script against Railway Postgres; verify row counts
 - [ ] Frontend: replace `cloudGet`/`cloudSet` with `VITE_API_URL`-based per-action fetch calls
-- [ ] Frontend: admin login calls `POST /admin/login`, stores session token in memory
+- [ ] Frontend: admin login calls `POST /api/admin/login`, stores session token in memory
 - [ ] All write endpoints include session token in Authorization header
 - [ ] No whole-array POSTs remain (D3 fixed)
 - [ ] Smoke test: place order, send chat message, upload receipt, admin flows, admin login/logout
