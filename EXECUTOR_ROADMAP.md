@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 0 — Plan commit bootstrap. Plan docs created; awaiting commit + password rotation prompt.**
+**Phase 0 — Complete except password rotation. b58bedd + 3929845 on origin/main. Next prompt: rotate hardcoded admin password in App.jsx (D1 interim fix).**
 
 ---
 
@@ -18,8 +18,10 @@
 - [x] Read-only recon completed (2026-07-29)
 - [x] EVERYTHINGBIDA_PLAN.md created in repo root
 - [x] EXECUTOR_ROADMAP.md created in repo root
-- [ ] Commit plan docs to origin main (blocked: dirty tree — see Session Log)
-- [ ] Rotate hardcoded admin password in App.jsx (next prompt, after operator confirms dirty-tree handling)
+- [x] Commit plan docs to origin main — b58bedd (2026-07-29)
+- [x] WIP dirty tree preserved as commit 3929845; .netlify/ build artifacts untracked + gitignored
+- [x] Hosting decision recorded: frontend → Vercel (not Netlify); plan doc synced
+- [ ] Rotate hardcoded admin password in App.jsx — NEXT PROMPT
 
 ### Phase 1 — Backend foundation (`everythingbida-backend`)
 - [ ] Create new repo `everythingbida-backend` (GitHub)
@@ -41,8 +43,9 @@
 - [ ] All write endpoints include session token in Authorization header
 - [ ] No whole-array POSTs remain (D3 fixed)
 - [ ] Smoke test: place order, send chat message, upload receipt, admin flows, admin login/logout
-- [ ] Retire Netlify function (remove `netlify/functions/api.mjs`, update `netlify.toml`)
-- [ ] Push + deploy; verify Netlify build passes
+- [ ] Deploy frontend to Vercel; smoke runs on Vercel URL
+- [ ] Retire Netlify site and function entirely (remove `netlify/functions/api.mjs`, `netlify.toml`; delete Netlify site)
+- [ ] Push + verify Vercel build passes
 
 ### Phase 3 — Delivery locations
 - [ ] Backend: `locations` CRUD endpoints (admin-only for write: POST/PUT/DELETE; public GET)
@@ -59,11 +62,11 @@
 ### Phase 4 — Catalog upgrades
 - [ ] Backend: `categories` CRUD (admin-only write; public GET)
 - [ ] Frontend admin: Categories tab — add/edit/delete/reorder categories
-- [ ] Frontend shop: category pills replace hardcoded meats/other toggle
+- [ ] Frontend shop: category pills replace hardcoded meats/other toggle — **NOTE: category filter pill CSS + DEFAULT_CATEGORIES already in WIP commit 3929845; review/reuse before rebuilding**
 - [ ] Backend: `products.in_stock` bool; PATCH endpoint for stock toggle
 - [ ] Frontend admin: per-product in-stock toggle switch
-- [ ] Frontend shop: out-of-stock products show OUT OF STOCK badge (not hidden)
-- [ ] Frontend shop: product search bar (client-side filter on name/description)
+- [ ] Frontend shop: out-of-stock products show OUT OF STOCK badge (not hidden) — **NOTE: stock badge CSS + out-of-stock overlay CSS already in WIP commit 3929845; review/reuse**
+- [ ] Frontend shop: product search bar (client-side filter on name/description) — **NOTE: search bar CSS already in WIP commit 3929845; review/reuse**
 
 ### Phase 5 — Landing page
 - [ ] Frontend: hero section above shop grid (value props: instant availability, 10–60 min delivery, effortless selling, built for speed)
@@ -72,7 +75,7 @@
 
 ### Phase 6 — Tracking + polling
 - [ ] Backend: `GET /orders/:id` (public) — returns order + status + items + delivery info
-- [ ] Frontend: customer tracking view — enter order ID → fetch → display status timeline with ETA copy
+- [ ] Frontend: customer tracking view — enter order ID → fetch → display status timeline with ETA copy — **NOTE: tracking timeline CSS already in WIP commit 3929845; review/reuse before rebuilding**
 - [ ] Backend: admin status update endpoint (`PATCH /orders/:id/status`) with new statuses: `pending → confirmed → preparing → out_for_delivery → delivered`, `ready_for_pickup`
 - [ ] Frontend admin: status controls updated to new status set
 - [ ] Frontend: 20s polling on admin orders view
@@ -107,14 +110,13 @@
 
 ## Session Log
 
-### 2026-07-29 — Phase 0 bootstrap
+### 2026-07-29 — Phase 0 bootstrap + WIP preservation + Vercel decision
 - Repo found at `/c/Users/danie/.openclaw/workspace-chaincheff/everythingbida`
 - Origin: `github.com/castlejnr2-droid/everythingbida` ✓
-- Branch: `main`, in sync with `origin/main` (no ahead/behind)
-- **DIRTY TREE DETECTED** — 6 modified files not yet committed:
-  - `src/App.jsx` (+432 lines net): significant in-progress additions — DEFAULT_CATEGORIES, LOW_STOCK_THRESHOLD, stock badge CSS, out-of-stock overlay CSS, search bar CSS, category filter CSS, tracking timeline CSS, btn:disabled style, status-shipped style. These appear to be partial Phase 4/6 UI groundwork done outside of plan phases.
-  - `netlify/functions/api.mjs` (+39 lines net): email notification endpoint (`POST ?action=notify` via EmailJS) added — this is partial Phase 7 work done outside plan.
-  - `.netlify/functions/api.zip`, `.netlify/functions/manifest.json`, `.netlify/netlify.toml`, `netlify.toml`: build artifact changes.
-- Operator must confirm how to handle dirty files before they can be resolved. Plan docs committed separately (new files only).
-- PLAN SYNC NEEDED: Section 1 "Current state" says App.jsx is 737 lines — working tree is now 1007 lines. Operator should update after deciding what to do with dirty changes.
-- Commit hash for plan docs: (to be filled after push)
+- Dirty tree discovered: 6 modified files. Operator decision: preserve as WIP commit.
+- Push of b58bedd initially blocked by expired PAT in remote URL. Resolved by operator switching to gh CLI + clean tokenless remote URL.
+- **b58bedd** — plan docs committed to origin/main.
+- **3929845** — WIP commit: src/App.jsx (+432 lines: categories, stock badges, search, tracking timeline CSS), netlify/functions/api.mjs (+39 lines: EmailJS notify, reference-only), netlify.toml (updated). .netlify/ build artifacts untracked + .gitignore updated.
+- **Hosting decision:** frontend moves from Netlify to Vercel. EVERYTHINGBIDA_PLAN.md synced: Section 2 Frontend line, secrets line, Phase 2 description all updated.
+- EmailJS work in api.mjs confirmed superseded by server-side Resend (Phase 7). Client-side email keys = same class of mistake as D1 (hardcoded secret in bundle).
+- Next: rotate hardcoded admin password `castle@7035` in App.jsx:191 (D1 interim fix).

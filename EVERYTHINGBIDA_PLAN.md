@@ -9,7 +9,8 @@ This document is the source of truth. Chat memory is secondary. Every completed 
 
 ## 1. Current state (from read-only recon, 2026-07-19)
 
-- Single-file React app (`src/App.jsx`, 737 lines), Vite build, deployed on Netlify.
+- Single-file React app (`src/App.jsx`, 1007 lines in working tree — 737 at last origin commit plus ~432 lines of uncommitted in-progress work discovered in recon (DEFAULT_CATEGORIES, stock badge/out-of-stock overlay, search bar, category filter pills, tracking timeline CSS — preserved as WIP commit `3929845`; reusable groundwork for Phases 4 + 6)), Vite build, deployed on Netlify.
+- `netlify/functions/api.mjs` carries +39 WIP lines adding an EmailJS notify endpoint, preserved as reference only, superseded by server-side Resend in Phase 7.
 - Storage: Netlify Blobs via one function (`netlify/functions/api.mjs`). Resources: `products`, `orders`, `messages`, `bank`.
 - Views: shop (meats/other toggle), cart + checkout (pickup/delivery, bank transfer), per-order chat with image (receipt) upload, admin product CRUD, admin orders, admin bank settings.
 - Product images stored as base64 strings inside the products blob.
@@ -27,7 +28,7 @@ This document is the source of truth. Chat memory is secondary. Every completed 
 
 ## 2. Target architecture
 
-- **Frontend:** React/Vite, stays on Netlify (everythingbida.netlify.app → later custom domain).
+- **Frontend:** React/Vite, moves from Netlify to Vercel. Netlify site + function fully retired after Phase 2 cutover smoke.
 - **Backend:** Node.js + Express + PostgreSQL on Railway (same stack as Lada/Gramketing backends). New repo: `everythingbida-backend`.
 - **Images:** stored in Postgres (`bytea`), served via `GET /images/:id` with `Cache-Control: public, max-age=31536000, immutable`. Product/message records reference image IDs, never inline base64.
 - **Auth:** admin password stored server-side as bcrypt hash (env). Login returns a signed session token; all admin/write endpoints require it. Public endpoints: read products/categories/locations, place order, order tracking by ID, per-order chat (scoped by order ID), seller application submit.
@@ -37,7 +38,7 @@ This document is the source of truth. Chat memory is secondary. Every completed 
 ### Env vars (Railway backend)
 `DATABASE_URL`, `ADMIN_PASSWORD_HASH`, `SESSION_SECRET`, `RESEND_API_KEY`, `ADMIN_EMAIL`, `ADMIN_WHATSAPP_NUMBER`, `FRONTEND_ORIGIN` (CORS allowlist).
 Frontend env: `VITE_API_URL`.
-Secrets staging per standing rule: values live in local gitignored `.env`; executor syncs to Railway/Netlify without printing/echoing/committing values.
+Secrets staging per standing rule: values live in local gitignored `.env`; executor syncs to Railway/Vercel without printing/echoing/committing values.
 
 ### Database schema (v2)
 - `products` (id, name, category_id, price, description, image_id, in_stock bool, vendor_id nullable, created_at)
@@ -79,7 +80,7 @@ Out of scope for v2 (parked): vendor self-service accounts/logins, online card p
 
 **Phase 1 — Backend foundation (new repo `everythingbida-backend`).** Express scaffold, Postgres pool, migration 001 (full schema above), bcrypt admin login + session middleware, image upload/serve endpoints, CORS allowlist, `/health`. Deploy to Railway; verify boot log + /health per env-race rule.
 
-**Phase 2 — Data migration + frontend cutover.** One-off script reads existing Netlify Blobs JSON (products/orders/messages/bank), decodes base64 images into `images` table, inserts rows. Frontend switched to `VITE_API_URL` client with per-action endpoints (no whole-array POSTs). Admin login via backend. Smoke: place order, chat, receipt upload, admin flows. Then retire Netlify function.
+**Phase 2 — Data migration + frontend cutover.** One-off script reads existing Netlify Blobs JSON (products/orders/messages/bank), decodes base64 images into `images` table, inserts rows. Frontend switched to `VITE_API_URL` client with per-action endpoints (no whole-array POSTs). Admin login via backend. Smoke: place order, chat, receipt upload, admin flows. Frontend deployed to Vercel; smoke runs on the Vercel URL; then retire the Netlify site and function entirely.
 
 **Phase 3 — Delivery locations.** Backend: locations CRUD (admin-only writes) with per-location delivery price; order placement validates that delivery orders carry a valid active location_id AND a non-empty specific_address, and computes delivery_fee + total server-side from the location record (never trust client totals). Frontend checkout (Home Delivery selected): step 1 — searchable list of admin-added locations rendered as tappable options, single-select, each showing its delivery price; step 2 — after selection, a required "Specific place in [location]" text field (street, house, landmark, directions). Order summary shows subtotal + delivery fee to the chosen location + total before Place Order. Admin gets a Locations tab (add/edit price/deactivate).
 
@@ -110,3 +111,5 @@ Out of scope for v2 (parked): vendor self-service accounts/logins, online card p
 | Date | Phase | Commit | Notes |
 |------|-------|--------|-------|
 | 2026-07-19 | Plan | — | Plan authored from repo recon; scope agreed |
+| 2026-07-29 | Phase 0 | b58bedd | Plan + roadmap committed; D1–D5 confirmed; push initially blocked by expired PAT, resolved by operator. |
+| 2026-07-29 | Phase 0 | 3929845 | Pre-plan WIP preserved; .netlify/ build artifacts untracked; hosting decision: frontend → Vercel. |
