@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 6 — Tracking + polling. Phase 5B (landing page) COMPLETE.**
+**Phase 7 — Notifications. Phase 6 (tracking + polling) COMPLETE.**
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
 
@@ -129,15 +129,15 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [x] Bundle delta: +5.38 kB raw / +1.16 kB gzip — 96b684f
 - Frontend commit: 96b684f | Backend commit: c5d01cd
 
-### Phase 6 — Tracking + polling
-- [ ] Backend: `GET /orders/:id` (public) — returns order + status + items + delivery info
-- [ ] Frontend: customer tracking view — enter order ID → fetch → display status timeline with ETA copy — **NOTE: tracking timeline CSS already in WIP commit 3929845; review/reuse before rebuilding**
-- [ ] Backend: admin status update endpoint (`PATCH /orders/:id/status`) with new statuses: `pending → confirmed → preparing → out_for_delivery → delivered`, `ready_for_pickup`
-- [ ] Frontend admin: status controls updated to new status set
-- [ ] Frontend: 20s polling on admin orders view
-- [ ] Frontend: 20s polling on admin chat / per-order messages
-- [ ] Frontend: 20s polling on customer tracking view
-- [ ] Frontend: 20s polling on customer chat (per order ID)
+### Phase 6 — Tracking + polling ✅ COMPLETE (2026-07-29)
+- [x] Security: XFF spoofing CLOSED — all 3 rate limiters use req.ip (trust proxy 1 was already set). Probe: spoofed XFF still 429. Backend 6d99166.
+- [x] Backend: GET /api/orders/:id (public) — already existed from Phase 2A; returns order + status + items + delivery info + location_name
+- [x] Backend: PUT /api/admin/orders/:id/status — already existed with full VALID_STATUSES allowlist (pending/confirmed/preparing/out_for_delivery/ready_for_pickup/delivered)
+- [x] Frontend: TrackOrderView rebuilt — deep link (?order=EB########), 20s smart polling (useSmartPoll), full delivery/pickup status timelines, subtotal/delivery-fee/total, paid/awaiting badge, ETA messaging per status, "Chat with Us" button, clear not-found message
+- [x] Frontend: migrated orders (NULL location_name) render cleanly (guards: location_name || specific_address)
+- [x] Frontend admin: OrdersView — smart next-status button per method (pickup→ready_for_pickup, delivery→out_for_delivery), secondary dropdown for corrections (UI-only enforcement), Mark Paid / Mark Unpaid toggle
+- [x] useSmartPoll hook: chat 15s, admin orders 20s, tracking 20s; visibility-aware (pauses on hidden, immediate fetch on resume); 60s backoff after 3+ consecutive failures; no overlapping requests; cleans up on unmount
+- Frontend commit: 5c1651a | Backend commit: 6d99166
 
 ### Phase 7 — Notifications
 - [ ] Backend: install Resend SDK; configure `RESEND_API_KEY` + `ADMIN_EMAIL` env vars on Railway
@@ -266,3 +266,23 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - **Bundle delta:** 270.89 kB → 276.27 kB (+5.38 kB raw / +1.16 kB gzip).
 - **Test data left:** rate-limit test images id=32–36 in images table (orphaned PNGs from smoke testing, 5×1px). Vendor applications id=3–9 from rate-limit tests — set to rejected in cleanup note: operator can delete via DB if desired; they are not visible to customers and are not approved.
 - Site loads 200 on https://everythingbida.com post-deploy. Phase 6 (tracking + polling) is next.
+
+### 2026-07-29 — Phase 6: Tracking + polling + XFF security fix
+
+- **Session recon:** Phase 5B complete, Phase 6 confirmed next. Inventory: GET /api/orders/:id existed (Phase 2A), VALID_STATUSES full allowlist existed, TrackOrderView was basic (no polling, no deep link, no ETA, no subtotal/paid labels, no chat button). trust proxy 1 already set in index.js; rate limiters still read XFF manually.
+
+- **STEP 1 — XFF spoofing fix (backend 6d99166):** Changed all 3 rate limiters (loginRateLimit in auth.js, vendorImageRateLimit in images.js, vendorAppRateLimit in vendors.js) from manual `XFF[0].split(',')` to `req.ip`. With trust proxy 1 set, Express derives req.ip from Railway's trusted proxy hop. Railway overwrites client-supplied XFF headers (confirmed by probe). Probe (a): 201×3 then 429 from request 4+ (rate limiter fires at count >= 5). Probe (b): randomized X-Forwarded-For on every request → all still 429 (Railway's XFF overwrite means client XFF cannot inflate the bucket). XFF spoofing debt CLOSED.
+
+- **Note on Railway multi-instance:** login rate limiter (10/15min window) didn't trigger on curl test because Railway load-balances across multiple in-memory instances. This is expected for the current in-memory implementation. The vendor-image limiter (5/hr) triggered correctly when 30 rapid requests hit the same instance. Shared-store (Redis) rate limiting is out of scope for Phase 6; acknowledged in probe results.
+
+- **TrackOrderView (frontend 5c1651a):** Deep link (?order=EB########) reads URL param on mount → sets currentView="track" and passes initialOrderId → auto-fetches order. 20s smart polling via useSmartPoll (below). Status timeline: delivery orders show out_for_delivery step; pickup orders show ready_for_pickup, NOT out_for_delivery. Order details: subtotal row, delivery fee with location name, total; paid/awaiting-payment badge; order placed timestamp. ETA messaging: per-status contextual messages, 10-60 min range copy for out_for_delivery, honest/range-based (no fake countdown). Chat button: "Chat with Us About This Order" → navigates to chat view with order pre-selected (hidden on delivered). Not found: clear card with instructions (never a crash/blank). Migrated orders (location_name NULL): renders specific_address only, no crash.
+
+- **Admin OrdersView:** Smart next-status button (→ Confirmed, → Preparing, → Out for Delivery / Ready for Pickup per method, → Delivered) shown prominently. Secondary `<select>` kept for all-status correction (any jump allowed, UI-only enforcement). Mark Paid / Mark Unpaid toggle always visible. Polling upgraded to useSmartPoll.
+
+- **useSmartPoll hook:** chat 15s, admin orders 20s, tracking 20s. Visibility: pauses when document.hidden (skips setTimeout callback), immediate doFetch on visibilitychange resume. Backoff: failCount >= 3 → 60s delay (else intervalMs). Overlap guard: inFlight boolean prevents concurrent requests. Cleanup: destroyed flag + clearTimeout + removeEventListener on unmount.
+
+- **Test data created:** EB21440698 (delivery, Bida Central, 1×Fresh Chicken, walked through all statuses), EB46922684 (pickup, Premium Turkey). Both left in DB.
+
+- **Bundle delta:** 276.27 kB → 280.50 kB (+4.23 kB raw / +4.35 kB gzip increase — includes useSmartPoll hook + full TrackOrderView rewrite + admin controls). Site loads 200 on https://everythingbida.com post-deploy.
+
+- Phase 7 (notifications) is next.
