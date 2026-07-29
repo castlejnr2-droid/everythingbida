@@ -164,6 +164,28 @@ const styles = `
   .vendor-card { border: 1px solid #FDE68A; border-radius: 14px; padding: 18px; margin-bottom: 14px; }
   .vendor-photo { width: 80px; height: 80px; border-radius: 10px; background-size: cover; background-position: center; background-color: #FEF3C7; display: flex; align-items: center; justify-content: center; font-size: 36px; flex-shrink: 0; }
   .seller-form-confirm { background: #D1FAE5; border: 2px solid #6EE7B7; border-radius: 14px; padding: 28px; text-align: center; }
+  /* --- Landing / Hero --- */
+  .hero { background: linear-gradient(135deg, #78350F 0%, #B45309 60%, #D97706 100%); border-radius: 20px; padding: 44px 28px 36px; text-align: center; margin-bottom: 32px; color: white; }
+  .hero-title { font-size: clamp(30px, 7vw, 52px); font-weight: 900; letter-spacing: -0.5px; margin-bottom: 10px; line-height: 1.1; }
+  .hero-tagline { font-size: clamp(15px, 3.5vw, 19px); color: rgba(255,255,255,0.88); margin-bottom: 28px; line-height: 1.5; }
+  .hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .hero-cta-primary { padding: 14px 32px; border-radius: 12px; border: none; background: white; color: #92400E; font-weight: 800; font-size: 16px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+  .hero-cta-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.22); }
+  .hero-cta-secondary { padding: 14px 28px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.65); background: transparent; color: white; font-weight: 700; font-size: 16px; cursor: pointer; transition: background 0.15s, transform 0.15s; }
+  .hero-cta-secondary:hover { background: rgba(255,255,255,0.12); transform: translateY(-2px); }
+  .value-props { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .value-prop { background: white; border-radius: 14px; padding: 20px 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); border: 1px solid #FDE68A; }
+  .value-prop-icon { font-size: 30px; margin-bottom: 8px; }
+  .value-prop h4 { color: #78350F; font-size: 15px; margin-bottom: 5px; }
+  .value-prop p { color: #92400E; font-size: 13px; line-height: 1.55; }
+  .how-it-works { background: white; border-radius: 14px; padding: 20px 24px; border: 1px solid #FDE68A; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 28px; }
+  .how-it-works h3 { color: #78350F; font-size: 16px; font-weight: 700; margin-bottom: 14px; text-align: center; }
+  .how-steps { display: flex; gap: 0; flex-wrap: nowrap; align-items: flex-start; justify-content: center; overflow-x: auto; }
+  .how-step { text-align: center; flex: 1; min-width: 70px; padding: 0 4px; }
+  .how-step-icon { font-size: 26px; display: block; margin-bottom: 5px; }
+  .how-step-label { font-size: 12px; color: #92400E; font-weight: 600; line-height: 1.3; }
+  .how-arrow { font-size: 18px; color: #D97706; align-self: center; padding: 0 2px; flex-shrink: 0; }
+  @media (max-width: 380px) { .hero { padding: 32px 16px 28px; } .hero-cta-primary, .hero-cta-secondary { width: 100%; } .hero-ctas { flex-direction: column; } }
 `;
 
 
@@ -381,6 +403,11 @@ function StockBadge({ inStock }) {
 function ShopView({ products, addToCart, setCurrentView, categories }) {
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const catalogRef = useRef(null);
+
+  const scrollToCatalog = () => {
+    catalogRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   // Only show category pills that have at least one product in the current catalog
   const visibleCategories = categories.filter(c => products.some(p => p.category_name === c.name));
@@ -395,6 +422,56 @@ function ShopView({ products, addToCart, setCurrentView, categories }) {
 
   return (
     <>
+      {/* --- Hero / Landing --- */}
+      <div className="hero">
+        <div className="hero-title">EverythingBida</div>
+        <div className="hero-tagline">Hyperlocal same-day delivery in Bida.<br />Order now — at your door in minutes.</div>
+        <div className="hero-ctas">
+          <button className="hero-cta-primary" onClick={scrollToCatalog}>🛒 Shop Now</button>
+          <button className="hero-cta-secondary" onClick={() => setCurrentView("become-seller")}>🏬 Become a Seller</button>
+        </div>
+      </div>
+
+      {/* --- Value Props --- */}
+      <div className="value-props">
+        <div className="value-prop">
+          <div className="value-prop-icon">⚡</div>
+          <h4>Instant Availability</h4>
+          <p>Only products in stock and ready in Bida today are listed. What you see is what you can get right now.</p>
+        </div>
+        <div className="value-prop">
+          <div className="value-prop-icon">🚀</div>
+          <h4>Delivery in Minutes</h4>
+          <p>Order now, receive within 10–60 minutes at your doorstep.</p>
+        </div>
+        <div className="value-prop">
+          <div className="value-prop-icon">🛍️</div>
+          <h4>Effortless Selling</h4>
+          <p>Vendors list products in seconds and reach customers across Bida instantly. Our team verifies and approves quickly.</p>
+        </div>
+        <div className="value-prop">
+          <div className="value-prop-icon">🏎️</div>
+          <h4>Built for Speed</h4>
+          <p>We solve the biggest frustration with online shopping: slow delivery.</p>
+        </div>
+      </div>
+
+      {/* --- How It Works --- */}
+      <div className="how-it-works">
+        <h3>How it works</h3>
+        <div className="how-steps">
+          <div className="how-step"><span className="how-step-icon">🔍</span><span className="how-step-label">Browse</span></div>
+          <div className="how-arrow">›</div>
+          <div className="how-step"><span className="how-step-icon">🛒</span><span className="how-step-label">Order</span></div>
+          <div className="how-arrow">›</div>
+          <div className="how-step"><span className="how-step-icon">💳</span><span className="how-step-label">Pay by transfer</span></div>
+          <div className="how-arrow">›</div>
+          <div className="how-step"><span className="how-step-icon">🚚</span><span className="how-step-label">Delivered in 10–60 min</span></div>
+        </div>
+      </div>
+
+      {/* --- Catalog anchor --- */}
+      <div ref={catalogRef}>
       <div className="search-bar">
         <input type="text" className="input" placeholder="🔍 Search products..." value={searchText} onChange={e => setSearchText(e.target.value)} />
         {searchText && (
@@ -439,6 +516,7 @@ function ShopView({ products, addToCart, setCurrentView, categories }) {
           })}
         </div>
       )}
+      </div>{/* /catalogRef */}
     </>
   );
 }

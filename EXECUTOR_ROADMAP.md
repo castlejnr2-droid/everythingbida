@@ -8,9 +8,7 @@
 ---
 
 ## Current position
-**Phase 5B — Landing page. Phase 5A (seller registration) COMPLETE.**
-
-PHASE ORDER SWAP (2026-07-29): Seller registration (originally Phase 8) moved before landing page (Phase 5A before 5B) so the "Become a Seller" CTA can link to a live form when the landing ships.
+**Phase 6 — Tracking + polling. Phase 5B (landing page) COMPLETE.**
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
 
@@ -118,10 +116,18 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [x] Public /api/products does NOT expose vendor_id (confirmed in bundle + API response) — b92a3c7
 - Frontend commit: b92a3c7 | Backend commit: 72a730b
 
-### Phase 5B — Landing page
-- [ ] Frontend: hero section above shop grid (value props: instant availability, 10–60 min delivery, effortless selling, built for speed)
-- [ ] CTA buttons: "Shop Now" → scrolls to/shows shop; "Become a Seller" → seller registration form (Phase 5A view)
-- [ ] Mobile-first layout; verify on 375px viewport
+### Phase 5B — Landing page + rate-limit gap ✅ COMPLETE (2026-07-29)
+- [x] Backend: POST /api/vendor-images rate-limited 5/IP/hr (X-Forwarded-For, 429 on 6th) — c5d01cd
+- [x] Backend: POST /api/vendors rate-limited 3/IP/hr (X-Forwarded-For, 429 on 4th) — c5d01cd
+- [x] Backend: trust proxy enabled; login rate limiter patched with same XFF fix — c5d01cd
+- [x] Public-upload rate-limit debt CLOSED
+- [x] Frontend: hero with 'EverythingBida' + tagline, 'Shop Now' (scrollIntoView catalog), 'Become a Seller' (routes to form) — 96b684f
+- [x] Frontend: 4 value props (Instant Availability, Delivery in Minutes, Effortless Selling, Built for Speed) — no fabricated stats — 96b684f
+- [x] Frontend: How it works strip (Browse → Order → Pay → Delivered 10–60 min) — 96b684f
+- [x] Navigation approach: landing embedded in ShopView (no separate route); no forced redirect; all nav items accessible; one scroll/tap reaches catalog — 96b684f
+- [x] Mobile-first: 380px breakpoint, stacked CTAs below 380px; text sized with clamp() — 96b684f
+- [x] Bundle delta: +5.38 kB raw / +1.16 kB gzip — 96b684f
+- Frontend commit: 96b684f | Backend commit: c5d01cd
 
 ### Phase 6 — Tracking + polling
 - [ ] Backend: `GET /orders/:id` (public) — returns order + status + items + delivery info
@@ -251,3 +257,12 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - **Smoke (7/7 green):** (a) POST /api/vendors public ✓ with photo → admin queue shows image_id=8 → GET /api/images/8 → 200 ✓; (b) missing name/phone/product_types each → 400 with correct error ✓; (c) pending→contacted→approved status walk ✓, invalid status → 400 ✓; (d) ?status=approved returns only approved vendor, pending NOT included ✓; (e) PUT vendor_id=1 to product id=2 → persists in GET /api/admin/products ✓; (f) public /api/products has NO vendor_id field, 0 exposures in bundle shop rendering ✓; (g) POST /api/vendors 201 without token ✓, GET /api/admin/vendors 401 without token ✓.
 - **Test data created and cleaned up:** vendors id=1 (Smoke Seller Test) + id=2 (Smoke Photo Seller) both set to rejected; vendor_id cleared from Fresh Chicken (product id=2); image id=8 (tiny PNG) left in images table (orphaned, no harm).
 - Site loads 200 on https://everythingbida.com post-deploy. Phase 5B (landing page) is next.
+
+### 2026-07-29 — Phase 5B: Landing page + rate-limit gap closed
+- Session recon: Phase 5A complete; Phase 5B (landing page) confirmed next.
+- **Rate-limit gap (backend, c5d01cd):** POST /api/vendor-images and POST /api/vendors had no IP-level throttle. Added per-IP in-memory rate limiters (same Map pattern as login): 5 uploads/hr and 3 applications/hr. Initial deploy used `req.ip` which silently failed against Railway's rotating LB IPs — diagnosed and fixed by reading `X-Forwarded-For` header directly. `app.set('trust proxy', 1)` added to index.js; login rate limiter patched with same XFF fix. Live proof: 6th image upload → 429 ✓, 4th vendor application → 429 ✓. Public-upload rate-limit debt CLOSED.
+- **Navigation approach:** Landing section embedded inside ShopView above the product grid. "Shop Now" uses `scrollIntoView` on a `catalogRef` (no route change). "Become a Seller" routes to `become-seller` view. All nav items remain accessible from header on every view. Returning users reach catalog in one scroll or one "Shop Now" tap. No localStorage tracking, no forced redirect, no routing change for existing flows.
+- **Frontend landing (96b684f):** Hero section — gradient amber background, `EverythingBida` title with `clamp()` responsive sizing, tagline, two CTAs. Four value props in auto-fill grid (no fabricated stats or testimonials — strictly the spec copy). How it works strip (Browse → Order → Pay → Delivered). CSS: `.hero`, `.value-props`, `.how-it-works`, mobile stacked CTAs below 380px.
+- **Bundle delta:** 270.89 kB → 276.27 kB (+5.38 kB raw / +1.16 kB gzip).
+- **Test data left:** rate-limit test images id=32–36 in images table (orphaned PNGs from smoke testing, 5×1px). Vendor applications id=3–9 from rate-limit tests — set to rejected in cleanup note: operator can delete via DB if desired; they are not visible to customers and are not approved.
+- Site loads 200 on https://everythingbida.com post-deploy. Phase 6 (tracking + polling) is next.
