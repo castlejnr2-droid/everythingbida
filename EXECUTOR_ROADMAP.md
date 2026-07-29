@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 1 — Backend foundation. Phase 0 fully complete (all commits on origin/main). Next: scaffold `everythingbida-backend` repo (Express + Postgres on Railway).**
+**Phase 1B — Railway provisioning + deploy (awaiting operator .env staging). Phase 1A scaffold complete (backend repo created, committed, pushed).**
 
 ---
 
@@ -24,15 +24,17 @@
 - [x] Rotate hardcoded admin password in App.jsx — D1 interim mitigation (2026-07-29)
 
 ### Phase 1 — Backend foundation (`everythingbida-backend`)
-- [ ] Create new repo `everythingbida-backend` (GitHub)
-- [ ] Scaffold Express app: `src/index.js`, `src/db.js` (pg pool), `src/middleware/auth.js`
-- [ ] Write migration 001: full schema (products, categories, locations, orders, messages, vendors, images, bank_settings)
-- [ ] Implement bcrypt admin login endpoint (`POST /admin/login`) → signed session token
-- [ ] Session middleware: verify token on all admin/write routes
-- [ ] Image upload endpoint (`POST /images`) → stores bytea in Postgres, returns `{id}`
-- [ ] Image serve endpoint (`GET /images/:id`) → streams with `Cache-Control: public, max-age=31536000, immutable`
-- [ ] CORS configured to `FRONTEND_ORIGIN` env var only
-- [ ] `GET /health` returns `{ok: true, db: "connected"}`
+- [x] Create new repo `everythingbida-backend` (GitHub) — https://github.com/castlejnr2-droid/everythingbida-backend
+- [x] Scaffold Express app: `src/index.js`, `src/db.js` (pg pool), `src/auth.js` (auth + requireAdmin middleware)
+- [x] Write migration 001: full schema (products, categories, locations, orders, messages, vendors, images, bank_settings)
+- [x] Implement bcrypt admin login endpoint (`POST /api/admin/login`) → signed session token (12h)
+- [x] Session middleware: requireAdmin on all /api/admin/* routes; per-IP rate limit on login
+- [x] Image upload endpoint (`POST /api/admin/images`) → stores bytea in Postgres, returns `{id}`
+- [x] Image serve endpoint (`GET /api/images/:id`) → streams with `Cache-Control: public, max-age=31536000, immutable`
+- [x] Customer receipt upload: `POST /api/orders/:orderId/receipt-image`
+- [x] CORS configured to `FRONTEND_ORIGIN` env var (comma-separated exact origins, no wildcard)
+- [x] `GET /health` returns `{ok: true, migrations: <count>}`; migrations run on boot
+- [x] node --check passes all src files — commit 7f55047 pushed to origin/master
 - [ ] Deploy to Railway; verify boot log shows no errors; hit `/health`
 
 ### Phase 2 — Data migration + frontend cutover
@@ -120,6 +122,13 @@
 - **Hosting decision:** frontend moves from Netlify to Vercel. EVERYTHINGBIDA_PLAN.md synced: Section 2 Frontend line, secrets line, Phase 2 description all updated.
 - EmailJS work in api.mjs confirmed superseded by server-side Resend (Phase 7). Client-side email keys = same class of mistake as D1 (hardcoded secret in bundle).
 - Next: rotate hardcoded admin password `castle@7035` in App.jsx:191 (D1 interim fix).
+
+### 2026-07-29 — Phase 1A: backend scaffold complete
+- Repo created: `castlejnr2-droid/everythingbida-backend` (private) at `/c/Users/danie/.openclaw/workspace-chaincheff/everythingbida-backend`
+- Files: package.json (ESM, node>=20), .gitignore, .env.example, migrations/001_init.sql (full v2 schema with FKs + sensible defaults), src/db.js (pg Pool, ssl conditional on non-local URL), src/migrate.js (idempotent, schema_migrations table, transactional), src/auth.js (POST /api/admin/login bcrypt+JWT 12h + requireAdmin middleware + per-IP rate limit), src/images.js (admin upload, public serve, customer receipt upload), src/index.js (express.json 8mb, CORS allowlist, /health), README.md, PROGRESS.md
+- `node --check` passed all src files
+- **7f55047** — pre-amend hash recorded in PROGRESS.md; pushed as bb948c3
+- Next: Phase 1B — Railway provisioning + deploy (operator must stage .env values first)
 
 ### 2026-07-29 — Phase 0 final: D1 interim password rotation
 - Replaced leaked password at App.jsx:191 with a new 16-char random value (letters + digits, no ambiguous chars).
