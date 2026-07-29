@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 2B — Data migration from Netlify Blobs. Phase 2A complete: full v2 API surface live (commit d9a1479), all 6 probes green. Backend: https://everythingbida-backend-production.up.railway.app**
+**Phase 2C — Frontend cutover + Vercel deploy + Netlify retirement. Phase 2B complete: migration executed (commit d20e575), all data live in Railway Postgres, no drift, all image hashes verified. Backend: https://everythingbida-backend-production.up.railway.app**
 
 ---
 
@@ -49,8 +49,13 @@
   - Location DELETE: deactivates if order-referenced, hard deletes otherwise
   - Message sender: auto-detected from admin JWT (no separate route)
   - Permanent test order in DB: EB25793599 (delivered, Test Island, 2×Test Chicken)
-- [ ] **Phase 2B — Data migration script**: read Netlify Blobs (products/orders/messages/bank), decode base64 images → `images` table, insert rows
-- [ ] Run migration script against Railway Postgres; verify row counts
+- [x] **Phase 2B — Data migration script executed (2026-07-29, commit d20e575)**
+  - Snapshot: 20260729T021732Z — categories=2 strings, products=3, orders=3 ("delivered"), messages=10, bank=null
+  - Status mapping: "delivered"→"delivered" direct match; no ambiguous statuses
+  - All 3 product images (data URI → bytea): decoded non-empty, MIME=image/jpeg; SHA-256 byte-compare against /api/images/:id → all MATCH
+  - DB after: categories=3 (Meats/Other/Uncategorized), products=3, orders=4 (+test EB25793599), messages=13 (+3 test), images=4
+  - Skipped items: 0
+  - Drift check at 20260729T082652Z: 0 new rows on all resources
 - [ ] Frontend: replace `cloudGet`/`cloudSet` with `VITE_API_URL`-based per-action fetch calls
 - [ ] Frontend: admin login calls `POST /api/admin/login`, stores session token in memory
 - [ ] All write endpoints include session token in Authorization header
