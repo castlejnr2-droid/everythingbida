@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 3 — Delivery locations. Phase 2 COMPLETE.**
+**Phase 4 — Catalog upgrades. Phase 3 COMPLETE.**
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
 
@@ -76,17 +76,21 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [x] netlify/functions/api.mjs + netlify/ dir + netlify.toml DELETED; @netlify/blobs + netlify-cli removed from package.json; npm install + build verified clean
 - [x] Phase 2D: DNS cutover confirmed (domain re-added to Vercel in external DNS mode; Namecheap A+CNAME records unchanged). TLS issued. www→apex 308 redirect via vercel.json. Final Netlify snapshot 20260729T114750Z — zero delta. **Phase 2 COMPLETE.**
 
-### Phase 3 — Delivery locations
-- [ ] Backend: `locations` CRUD endpoints (admin-only for write: POST/PUT/DELETE; public GET)
-- [ ] Backend: order placement validates `location_id` (must be active) + `specific_address` non-empty when `method=delivery`
-- [ ] Backend: `delivery_fee` + `total` computed server-side from location record (never trust client totals)
-- [ ] Frontend checkout (delivery flow): step 1 — searchable tappable list of active locations, each showing delivery price, single-select required
-- [ ] Frontend checkout: step 2 — after location selected, required "Specific place in [location]" text field
-- [ ] Frontend: order summary shows subtotal + delivery fee + total before Place Order
-- [ ] Frontend: receipt / order confirmation shows selected location + specific place
-- [ ] Admin: Locations tab — add location (name + delivery price), edit price, deactivate/reactivate
-- [ ] Admin order card: shows location + specific address for delivery orders
-- [ ] Tracking view: shows location + specific address
+### Phase 3 — Delivery locations ✅ COMPLETE (2026-07-29)
+- [x] Backend: `locations` CRUD endpoints (admin-only for write: POST/PUT/DELETE; public GET) — Phase 2A
+- [x] Backend: GET /api/admin/locations — all locations (active+inactive) with order_count — 3131e6d
+- [x] Backend: order placement validates `location_id` (must be active) + `specific_address` non-empty when `method=delivery` — Phase 2A
+- [x] Backend: `delivery_fee` + `total` computed server-side from location record; POST response enriched with location_name — 3131e6d
+- [x] Frontend checkout (delivery flow): step 1 — searchable tappable list of active locations, each showing delivery price, single-select required
+- [x] Frontend checkout: step 2 — after location selected, required "Specific place in [location]" text field (appears only after location chosen)
+- [x] Frontend: order summary shows subtotal + "Delivery to [location]" + total before Place Order; inline validation errors (no alert())
+- [x] Frontend: delivery option card disabled with message when no active locations
+- [x] Frontend: receipt/order confirmation shows location_name + specific_address + "Delivery to X" fee label
+- [x] Admin: Locations tab — add, edit inline, deactivate/reactivate buttons, order count badge, shows inactive locations
+- [x] Admin order card: shows location_name + specific_address (Phase 2A + orders query already had LEFT JOIN)
+- [x] Tracking view: shows location + specific address (Phase 2C already wired)
+- [x] Admin chat header: shows location name + specific address for delivery orders
+- Frontend commit: c9d1df8 | Backend commit: 3131e6d
 
 ### Phase 4 — Catalog upgrades
 - [ ] Backend: `categories` CRUD (admin-only write; public GET)
@@ -200,3 +204,19 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - Comment added above the check: `// INTERIM — client-side auth removed in Phase 2 (server-side login)`
 - Phase 0 now fully complete. All commits on origin/main.
 - Phase 1 is next: scaffold `everythingbida-backend` (Express + Postgres on Railway).
+
+### 2026-07-29 — Phase 3: Delivery locations end-to-end
+- Session recon: Phase 2 all done; locations CRUD already existed from Phase 2A (backend); LocationsView, admin orders query with location_name JOIN already existed from Phase 2C. Phase 3 checkboxes all unchecked.
+- Pre-existing inventory: backend CRUD fully wired, CartView had a <select> dropdown (not tappable cards), LocationsView used public endpoint (couldn't see inactive), SuccessModal lacked location display, ChatView header had no location context.
+- Backend probe: GET /api/locations → [] (no active locations); POST /api/orders validation confirmed: missing location_id → 400, missing/whitespace specific_address → 400, nonexistent location_id → 400. /health {ok:true,migrations:1}.
+- Backend changes (3131e6d): GET /api/admin/locations (requireAdmin, returns all + order_count); POST /api/orders response enriched with location_name.
+- Frontend changes (c9d1df8): api.js getAdminLocations(); CartView → tappable location cards + search filter + two-step flow + inline errors + delivery option disabled when no locations; LocationsView → admin endpoint, inactive locations section, deactivate/reactivate buttons, order count badges; SuccessModal → location_name + specific_address block + "Delivery to X" fee line; ChatView header → location context for admin view. Build: 256.40 kB / 76.08 kB gzip.
+- **Password rotation (2026-07-29):** Admin password rotated — old password burned in history replaced. New hash (bcrypt cost 10) set on Railway. Proof: new pw → 200+token, old pw (`rK7mX4nJ9wQ2vB8p`) → 401. Value NOT recorded here.
+- **Backend bug fixed (orders.js):** `locRows` declared with `const` inside `if (method==='delivery')` block but referenced at function scope — ReferenceError crashed all delivery order POSTs. Fix: outer-scope `let locRow = null`, promoted. Deployed via `railway up`, health confirmed.
+- **Tamper test (live):** POST /api/orders with `delivery_fee=1,total=1` → response `delivery_fee=800.00,total=5300.00` (GRA, 1×Fresh Chicken). POST with `delivery_fee=-99999,total=-99999` → same. Client-sent fee/total are ignored; server computes from DB.
+- **Phase 3 smoke (all green):** (a) Bida Central ₦500 fee=500 total=5000 location_name present ✓ (b) inactive → 400 ✓ (c) tracking GET shows location_name+specific_address ✓ (d) admin/orders same ✓ (e) EB25793599 NULL location_id — 200 no errors ✓ (f) deactivate/existing-order/reactivate ✓
+- **Frontend bundle:** specific_address ×7, delivery_fee ×10, /api/locations, location search filter, specific-address field all confirmed in deployed bundle. No Phase 3 defects.
+- **Test locations (permanent):** id=2 "Bida Central" ₦500 (active), id=3 "GRA" ₦800 (active).
+- **Test orders (permanent):** EB73459826 (tamper1, GRA), EB59850108 (tamper2, GRA), EB26301317 (smoke-a, Bida Central).
+- Backend amended commit: d737512. Frontend amended commit: (this session). **Phase 3 COMPLETE.**
+- Phase 4 (catalog upgrades) is next.

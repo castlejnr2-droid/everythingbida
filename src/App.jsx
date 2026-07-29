@@ -142,6 +142,16 @@ const styles = `
   .track-step::after { content: ''; position: absolute; left: -21px; top: 20px; width: 2px; height: calc(100% - 20px); background: #FDE68A; }
   .track-step:last-child::after { display: none; }
   .track-step.completed::after { background: #D97706; }
+  .location-card { padding: 13px 16px; border-radius: 10px; border: 2px solid #FDE68A; cursor: pointer; background: white; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .location-card:hover { border-color: #D97706; background: #FFFBEB; }
+  .location-card.loc-selected { border-color: #D97706; background: #FEF3C7; box-shadow: 0 0 0 3px rgba(217,119,6,0.25); }
+  .location-card .loc-name { font-weight: bold; color: #78350F; font-size: 15px; }
+  .location-card .loc-fee { font-size: 13px; color: #92400E; white-space: nowrap; margin-left: 10px; }
+  .delivery-option.disabled-opt { opacity: 0.45; cursor: not-allowed; }
+  .delivery-option.disabled-opt:hover { border-color: #FDE68A; transform: none; }
+  .inline-error { color: #DC2626; font-size: 13px; margin-bottom: 10px; display: block; }
+  .loc-inactive-row { opacity: 0.55; background: #F9FAFB; }
+  .order-count-badge { font-size: 11px; background: #E0E7FF; color: #3730A3; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
 `;
 
 export default function App() {
@@ -245,7 +255,7 @@ export default function App() {
         {currentView === "chat" && <ChatView isAdmin={isAdmin} selectedOrder={selectedOrder} setSelectedOrder={setSelectedOrder} />}
         {currentView === "admin" && isAdmin && <AdminView products={products} setProducts={setProducts} categories={categories} />}
         {currentView === "categories" && isAdmin && <CategoriesView categories={categories} setCategories={setCategories} />}
-        {currentView === "locations" && isAdmin && <LocationsView locations={locations} setLocations={setLocations} />}
+        {currentView === "locations" && isAdmin && <LocationsView setLocations={setLocations} />}
         {currentView === "orders" && isAdmin && <OrdersView setSelectedOrder={setSelectedOrder} setCurrentView={setCurrentView} />}
         {currentView === "bank" && isAdmin && <BankView bank={bank} setBank={setBank} />}
       </main>
@@ -498,17 +508,34 @@ function TrackOrderView() {
 function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations }) {
   const [customerInfo, setCustomerInfo] = useState({ name: "", phone: "", method: "pickup", address: "", locationId: "" });
   const [placing, setPlacing] = useState(false);
+  const [locationSearch, setLocationSearch] = useState("");
+  const [errors, setErrors] = useState({});
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const selectedLoc = locations.find(l => l.id === Number(customerInfo.locationId));
   const deliveryFee = customerInfo.method === 'delivery' && selectedLoc ? parseFloat(selectedLoc.delivery_fee) : 0;
+  const hasActiveLocations = locations.length > 0;
+
+  const filteredLocations = locationSearch.trim()
+    ? locations.filter(l => l.name.toLowerCase().includes(locationSearch.toLowerCase()))
+    : locations;
+
+  const selectLocation = (loc) => {
+    setCustomerInfo(prev => ({ ...prev, locationId: String(loc.id), address: "" }));
+    setErrors(prev => ({ ...prev, location: undefined }));
+    setLocationSearch("");
+  };
 
   const handleSubmit = async () => {
-    if (!customerInfo.name || !customerInfo.phone) { alert("Please fill in name and phone"); return; }
+    const newErrors = {};
+    if (!customerInfo.name.trim()) newErrors.name = "Name is required";
+    if (!customerInfo.phone.trim()) newErrors.phone = "Phone number is required";
     if (customerInfo.method === "delivery") {
-      if (!customerInfo.locationId) { alert("Please select a delivery area"); return; }
-      if (!customerInfo.address.trim()) { alert("Please provide your specific address"); return; }
+      if (!customerInfo.locationId) newErrors.location = "Please select a delivery area";
+      if (!customerInfo.address.trim()) newErrors.address = "Please describe your specific location";
     }
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+    setErrors({});
     setPlacing(true);
     try {
       await placeOrder(customerInfo);
@@ -558,7 +585,7 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
           </div>
           {customerInfo.method === 'delivery' && selectedLoc && (
             <div style={{ display: "flex", justifyContent: "space-between", color: "#92400E", marginBottom: "6px" }}>
-              <span>Delivery ({selectedLoc.name})</span><span>{formatPrice(deliveryFee)}</span>
+              <span>Delivery to {selectedLoc.name}</span><span>{formatPrice(deliveryFee)}</span>
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", color: "#78350F", fontSize: "18px", borderTop: "1px solid #FDE68A", paddingTop: "10px" }}>
@@ -569,37 +596,64 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
 
       <div className="card">
         <h3 style={{ color: "#78350F", marginBottom: "20px" }}>Customer Information</h3>
-        <input type="text" className="input" placeholder="Name" value={customerInfo.name} onChange={e => setCustomerInfo({ ...customerInfo, name: e.target.value })} />
-        <input type="tel" className="input" placeholder="Phone Number" value={customerInfo.phone} onChange={e => setCustomerInfo({ ...customerInfo, phone: e.target.value })} />
+        <input type="text" className="input" placeholder="Name" value={customerInfo.name}
+          onChange={e => { setCustomerInfo(prev => ({ ...prev, name: e.target.value })); setErrors(prev => ({ ...prev, name: undefined })); }} />
+        {errors.name && <span className="inline-error">{errors.name}</span>}
+        <input type="tel" className="input" placeholder="Phone Number" value={customerInfo.phone}
+          onChange={e => { setCustomerInfo(prev => ({ ...prev, phone: e.target.value })); setErrors(prev => ({ ...prev, phone: undefined })); }} />
+        {errors.phone && <span className="inline-error">{errors.phone}</span>}
 
         <h4 style={{ color: "#78350F", marginBottom: "12px", marginTop: "10px" }}>Delivery Method</h4>
         <div className="delivery-options">
-          <div className={`delivery-option ${customerInfo.method === "pickup" ? "active" : ""}`} onClick={() => setCustomerInfo({ ...customerInfo, method: "pickup", locationId: "" })}>
+          <div className={`delivery-option ${customerInfo.method === "pickup" ? "active" : ""}`}
+            onClick={() => { setCustomerInfo(prev => ({ ...prev, method: "pickup", locationId: "", address: "" })); setErrors({}); setLocationSearch(""); }}>
             <div style={{ fontSize: "28px" }}>🏪</div>
             <div style={{ fontWeight: "bold", color: "#78350F", marginTop: "8px" }}>Store Pickup</div>
           </div>
-          <div className={`delivery-option ${customerInfo.method === "delivery" ? "active" : ""}`} onClick={() => setCustomerInfo({ ...customerInfo, method: "delivery" })}>
+          <div
+            className={`delivery-option ${customerInfo.method === "delivery" ? "active" : ""} ${!hasActiveLocations ? "disabled-opt" : ""}`}
+            onClick={() => { if (hasActiveLocations) { setCustomerInfo(prev => ({ ...prev, method: "delivery" })); setErrors({}); } }}>
             <div style={{ fontSize: "28px" }}>🚚</div>
             <div style={{ fontWeight: "bold", color: "#78350F", marginTop: "8px" }}>Home Delivery</div>
+            {!hasActiveLocations && <div style={{ fontSize: "11px", color: "#DC2626", marginTop: "4px" }}>Currently unavailable</div>}
           </div>
         </div>
 
         {customerInfo.method === "delivery" && (
           <>
-            {locations.length === 0 ? (
-              <div style={{ background: "#FEF3C7", borderRadius: "10px", padding: "15px", marginBottom: "12px", color: "#92400E" }}>
-                ⚠️ No delivery areas are currently available. Please choose Store Pickup.
-              </div>
-            ) : (
-              <select className="input" value={customerInfo.locationId} onChange={e => setCustomerInfo({ ...customerInfo, locationId: e.target.value })}>
-                <option value="">Select delivery area…</option>
-                {locations.map(l => (
-                  <option key={l.id} value={l.id}>{l.name} — {formatPrice(l.delivery_fee)} delivery fee</option>
-                ))}
-              </select>
+            {/* Step 1: Location picker */}
+            <h4 style={{ color: "#78350F", marginBottom: "10px", marginTop: "4px" }}>Select Delivery Area</h4>
+            <input type="text" className="input" placeholder="Search locations…" value={locationSearch}
+              onChange={e => setLocationSearch(e.target.value)} style={{ marginBottom: "10px" }} />
+            <div style={{ maxHeight: "260px", overflowY: "auto", marginBottom: "10px" }}>
+              {filteredLocations.length === 0 && (
+                <p style={{ color: "#92400E", fontSize: "14px", padding: "10px 0" }}>No locations match your search.</p>
+              )}
+              {filteredLocations.map(loc => (
+                <div key={loc.id}
+                  className={`location-card ${customerInfo.locationId === String(loc.id) ? "loc-selected" : ""}`}
+                  onClick={() => selectLocation(loc)}>
+                  <span className="loc-name">{loc.name}</span>
+                  <span className="loc-fee">{formatPrice(loc.delivery_fee)} delivery</span>
+                </div>
+              ))}
+            </div>
+            {errors.location && <span className="inline-error">{errors.location}</span>}
+
+            {/* Step 2: specific address — only shown after a location is chosen */}
+            {selectedLoc && (
+              <>
+                <h4 style={{ color: "#78350F", marginBottom: "8px" }}>
+                  Specific place in <span style={{ color: "#D97706" }}>{selectedLoc.name}</span>
+                </h4>
+                <textarea className="input"
+                  placeholder="Street, house number, landmark or directions to reach you…"
+                  value={customerInfo.address}
+                  onChange={e => { setCustomerInfo(prev => ({ ...prev, address: e.target.value })); setErrors(prev => ({ ...prev, address: undefined })); }}
+                  rows="3" />
+                {errors.address && <span className="inline-error">{errors.address}</span>}
+              </>
             )}
-            <textarea className="input" placeholder="Your specific address / landmark" value={customerInfo.address}
-              onChange={e => setCustomerInfo({ ...customerInfo, address: e.target.value })} rows="3" />
           </>
         )}
 
@@ -865,19 +919,33 @@ function CategoriesView({ categories, setCategories }) {
   );
 }
 
-function LocationsView({ locations, setLocations }) {
+function LocationsView({ setLocations }) {
+  const [adminLocs, setAdminLocs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [newFee, setNewFee] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editFee, setEditFee] = useState("");
 
+  const refreshAll = async () => {
+    const [all, active] = await Promise.all([
+      api.getAdminLocations(),
+      api.getLocations().catch(() => []),
+    ]);
+    setAdminLocs(all);
+    setLocations(active); // keep cart dropdown in sync
+    setLoading(false);
+  };
+
+  useEffect(() => { refreshAll(); }, []); // eslint-disable-line
+
   const addLocation = async () => {
     if (!newName.trim()) return;
     try {
-      const created = await api.createLocation({ name: newName.trim(), delivery_fee: parseFloat(newFee) || 0 });
-      setLocations(prev => [...prev, created]);
+      await api.createLocation({ name: newName.trim(), delivery_fee: parseFloat(newFee) || 0 });
       setNewName(""); setNewFee("");
+      await refreshAll();
     } catch (err) { alert('Error: ' + err.message); }
   };
 
@@ -886,41 +954,60 @@ function LocationsView({ locations, setLocations }) {
   const saveEdit = async () => {
     if (!editName.trim()) return;
     try {
-      const updated = await api.updateLocation(editingId, { name: editName.trim(), delivery_fee: parseFloat(editFee) || 0 });
-      setLocations(prev => prev.map(l => l.id === editingId ? updated : l));
+      await api.updateLocation(editingId, { name: editName.trim(), delivery_fee: parseFloat(editFee) || 0 });
       setEditingId(null);
+      await refreshAll();
     } catch (err) { alert('Error: ' + err.message); }
   };
 
-  const deleteLocation = async (id) => {
-    if (!window.confirm("Delete this location? If orders reference it, it will be deactivated instead.")) return;
+  const deactivate = async (id) => {
+    if (!window.confirm("Deactivate this location? It will be hidden from customers but its existing orders remain intact.")) return;
     try {
-      const result = await api.deleteLocation(id);
-      if (result && result.deactivated) {
-        // Deactivated: remove from active list (GET /api/locations only returns active)
-        setLocations(prev => prev.filter(l => l.id !== id));
-        alert("Location deactivated (has existing orders).");
-      } else {
-        setLocations(prev => prev.filter(l => l.id !== id));
-      }
+      await api.updateLocation(id, { active: false });
+      await refreshAll();
     } catch (err) { alert('Error: ' + err.message); }
   };
+
+  const reactivate = async (id) => {
+    try {
+      await api.updateLocation(id, { active: true });
+      await refreshAll();
+    } catch (err) { alert('Error: ' + err.message); }
+  };
+
+  const hardDelete = async (id) => {
+    if (!window.confirm("Permanently delete this location? This only works if no orders reference it.")) return;
+    try {
+      await api.deleteLocation(id);
+      await refreshAll();
+    } catch (err) { alert('Error: ' + err.message); }
+  };
+
+  const active = adminLocs.filter(l => l.active);
+  const inactive = adminLocs.filter(l => !l.active);
+
+  if (loading) return (
+    <div className="card text-center" style={{ padding: "40px" }}>
+      <p style={{ color: "#92400E" }}>Loading locations…</p>
+    </div>
+  );
 
   return (
     <>
       <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#78350F", marginBottom: "25px" }}>📍 Delivery Locations</h2>
       <div className="card" style={{ marginBottom: "20px" }}>
         <h3 style={{ color: "#78350F", marginBottom: "15px" }}>Add New Location</h3>
-        <div style={{ display: "flex", gap: "10px" }}>
-          <input className="input" style={{ marginBottom: 0, flex: 2 }} placeholder="Location name (e.g. Poly Junction)" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && addLocation()} />
-          <input className="input" style={{ marginBottom: 0, flex: 1 }} type="number" placeholder="Delivery fee (₦)" value={newFee} onChange={e => setNewFee(e.target.value)} />
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <input className="input" style={{ marginBottom: 0, flex: 2, minWidth: "160px" }} placeholder="Location name (e.g. Poly Junction)" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && addLocation()} />
+          <input className="input" style={{ marginBottom: 0, flex: 1, minWidth: "120px" }} type="number" placeholder="Delivery fee (₦)" value={newFee} onChange={e => setNewFee(e.target.value)} />
           <button className="btn" onClick={addLocation} disabled={!newName.trim()}>Add</button>
         </div>
       </div>
+
       <div className="card">
-        <h3 style={{ color: "#78350F", marginBottom: "15px" }}>Active Locations ({locations.length})</h3>
-        {locations.length === 0 && <p style={{ color: "#92400E" }}>No locations yet. Add delivery areas above to enable home delivery.</p>}
-        {locations.map(loc => (
+        <h3 style={{ color: "#78350F", marginBottom: "15px" }}>Active Locations ({active.length})</h3>
+        {active.length === 0 && <p style={{ color: "#92400E" }}>No active locations. Add delivery areas above to enable home delivery.</p>}
+        {active.map(loc => (
           <div key={loc.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", borderBottom: "1px solid #FDE68A", flexWrap: "wrap" }}>
             {editingId === loc.id ? (
               <>
@@ -932,14 +1019,45 @@ function LocationsView({ locations, setLocations }) {
             ) : (
               <>
                 <span style={{ flex: 1, fontWeight: "bold", color: "#78350F" }}>{loc.name}</span>
-                <span style={{ color: "#92400E" }}>{formatPrice(loc.delivery_fee)} delivery fee</span>
+                <span style={{ color: "#92400E", marginRight: "6px" }}>{formatPrice(loc.delivery_fee)} delivery fee</span>
+                <span className="order-count-badge">{loc.order_count} order{loc.order_count !== 1 ? 's' : ''}</span>
                 <button className="btn btn-outline" style={{ padding: "6px 14px", fontSize: "12px" }} onClick={() => startEdit(loc)}>✏️ Edit</button>
-                <button className="btn btn-outline" style={{ padding: "6px 14px", fontSize: "12px", borderColor: "#FCA5A5", color: "#DC2626" }} onClick={() => deleteLocation(loc.id)}>🗑️ Delete</button>
+                <button className="btn btn-outline" style={{ padding: "6px 14px", fontSize: "12px", borderColor: "#FDE68A", color: "#92400E" }} onClick={() => deactivate(loc.id)}>Deactivate</button>
               </>
             )}
           </div>
         ))}
       </div>
+
+      {inactive.length > 0 && (
+        <div className="card" style={{ marginTop: "20px" }}>
+          <h3 style={{ color: "#78350F", marginBottom: "15px" }}>Inactive Locations ({inactive.length})</h3>
+          {inactive.map(loc => (
+            <div key={loc.id} className="loc-inactive-row" style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", borderBottom: "1px solid #FDE68A", flexWrap: "wrap", borderRadius: "6px", marginBottom: "4px" }}>
+              {editingId === loc.id ? (
+                <>
+                  <input className="input" style={{ marginBottom: 0, flex: 2, minWidth: "150px" }} value={editName} onChange={e => setEditName(e.target.value)} onKeyDown={e => e.key === "Enter" && saveEdit()} autoFocus />
+                  <input className="input" style={{ marginBottom: 0, flex: 1, minWidth: "100px" }} type="number" value={editFee} onChange={e => setEditFee(e.target.value)} />
+                  <button className="btn" style={{ padding: "8px 16px", fontSize: "13px" }} onClick={saveEdit}>Save</button>
+                  <button className="btn btn-outline" style={{ padding: "8px 16px", fontSize: "13px" }} onClick={() => setEditingId(null)}>Cancel</button>
+                </>
+              ) : (
+                <>
+                  <span style={{ flex: 1, fontWeight: "bold", color: "#78350F" }}>{loc.name}</span>
+                  <span style={{ color: "#92400E", marginRight: "6px" }}>{formatPrice(loc.delivery_fee)} delivery fee</span>
+                  <span className="order-count-badge">{loc.order_count} order{loc.order_count !== 1 ? 's' : ''}</span>
+                  <span style={{ fontSize: "11px", background: "#FEE2E2", color: "#DC2626", padding: "2px 8px", borderRadius: "10px", fontWeight: 600 }}>Inactive</span>
+                  <button className="btn btn-outline" style={{ padding: "6px 14px", fontSize: "12px" }} onClick={() => startEdit(loc)}>✏️ Edit</button>
+                  <button className="btn btn-green" style={{ padding: "6px 14px", fontSize: "12px" }} onClick={() => reactivate(loc.id)}>Reactivate</button>
+                  {loc.order_count === 0 && (
+                    <button className="btn btn-danger" style={{ padding: "6px 14px", fontSize: "12px" }} onClick={() => hardDelete(loc.id)}>🗑️ Delete</button>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
@@ -1168,6 +1286,15 @@ function ChatView({ isAdmin, selectedOrder, setSelectedOrder }) {
             <>
               <div className="chat-header">
                 <h3 style={{ color: "white", fontSize: "18px" }}>💬 Order: {currentOrderId}</h3>
+                {(() => {
+                  const od = isAdmin ? adminOrders.find(o => o.id === currentOrderId) : null;
+                  if (!od || od.method !== 'delivery' || !od.location_name) return null;
+                  return (
+                    <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "12px", marginTop: "4px" }}>
+                      📍 {od.location_name}{od.specific_address ? ` — ${od.specific_address}` : ''}
+                    </p>
+                  );
+                })()}
               </div>
               <div className="chat-messages">
                 {messages.map(msg => (
@@ -1285,13 +1412,21 @@ function SuccessModal({ order, bank, onClose }) {
           <p style={{ color: "#1E40AF" }}>{bank.acc_num}</p>
           <p style={{ color: "#1E40AF" }}>{bank.acc_name}</p>
         </div>
+        {order.method === 'delivery' && (order.location_name || order.specific_address) && (
+          <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: "12px", padding: "15px", marginBottom: "15px", textAlign: "left" }}>
+            <p style={{ fontWeight: "bold", color: "#92400E", marginBottom: "6px" }}>📍 Delivery to:</p>
+            {order.location_name && <p style={{ color: "#78350F", fontWeight: "bold", marginBottom: "3px" }}>{order.location_name}</p>}
+            {order.specific_address && <p style={{ color: "#92400E", fontSize: "13px" }}>{order.specific_address}</p>}
+          </div>
+        )}
         <div style={{ background: "#FEF3C7", borderRadius: "12px", padding: "15px", marginBottom: "20px", textAlign: "left" }}>
           <div style={{ display: "flex", justifyContent: "space-between", color: "#92400E", marginBottom: "6px" }}>
             <span>Subtotal</span><span style={{ fontWeight: "bold" }}>{formatPrice(order.subtotal)}</span>
           </div>
           {order.delivery_fee > 0 && (
             <div style={{ display: "flex", justifyContent: "space-between", color: "#92400E", marginBottom: "6px" }}>
-              <span>Delivery fee</span><span style={{ fontWeight: "bold" }}>{formatPrice(order.delivery_fee)}</span>
+              <span>{order.location_name ? `Delivery to ${order.location_name}` : 'Delivery fee'}</span>
+              <span style={{ fontWeight: "bold" }}>{formatPrice(order.delivery_fee)}</span>
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", color: "#78350F", borderTop: "1px solid #FDE68A", marginTop: "8px", paddingTop: "8px" }}>

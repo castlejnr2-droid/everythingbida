@@ -60,6 +60,7 @@ export const createCategory = (body) => req('POST', '/api/admin/categories', bod
 export const updateCategory = (id, body) => req('PUT', `/api/admin/categories/${id}`, body, true);
 export const deleteCategory = (id) => req('DELETE', `/api/admin/categories/${id}`, null, true);
 
+export const getAdminLocations = () => req('GET', '/api/admin/locations', null, true);
 export const createLocation = (body) => req('POST', '/api/admin/locations', body, true);
 export const updateLocation = (id, body) => req('PUT', `/api/admin/locations/${id}`, body, true);
 export const deleteLocation = (id) => req('DELETE', `/api/admin/locations/${id}`, null, true);
