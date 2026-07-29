@@ -56,6 +56,7 @@ export const createProduct = (body) => req('POST', '/api/admin/products', body, 
 export const updateProduct = (id, body) => req('PUT', `/api/admin/products/${id}`, body, true);
 export const deleteProduct = (id) => req('DELETE', `/api/admin/products/${id}`, null, true);
 
+export const getAdminCategories = () => req('GET', '/api/admin/categories', null, true);
 export const createCategory = (body) => req('POST', '/api/admin/categories', body, true);
 export const updateCategory = (id, body) => req('PUT', `/api/admin/categories/${id}`, body, true);
 export const deleteCategory = (id) => req('DELETE', `/api/admin/categories/${id}`, null, true);

@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 4 — Catalog upgrades. Phase 3 COMPLETE.**
+**Phase 5 — Landing page. Phase 4 COMPLETE.**
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
 
@@ -92,14 +92,18 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [x] Admin chat header: shows location name + specific address for delivery orders
 - Frontend commit: c9d1df8 | Backend commit: 3131e6d
 
-### Phase 4 — Catalog upgrades
-- [ ] Backend: `categories` CRUD (admin-only write; public GET)
-- [ ] Frontend admin: Categories tab — add/edit/delete/reorder categories
-- [ ] Frontend shop: category pills replace hardcoded meats/other toggle — **NOTE: category filter pill CSS + DEFAULT_CATEGORIES already in WIP commit 3929845; review/reuse before rebuilding**
-- [ ] Backend: `products.in_stock` bool; PATCH endpoint for stock toggle
-- [ ] Frontend admin: per-product in-stock toggle switch
-- [ ] Frontend shop: out-of-stock products show OUT OF STOCK badge (not hidden) — **NOTE: stock badge CSS + out-of-stock overlay CSS already in WIP commit 3929845; review/reuse**
-- [ ] Frontend shop: product search bar (client-side filter on name/description) — **NOTE: search bar CSS already in WIP commit 3929845; review/reuse**
+### Phase 4 — Catalog upgrades ✅ COMPLETE (2026-07-29)
+- [x] Backend: GET /api/categories returns product_count; GET /api/admin/categories (requireAdmin, product_count); DELETE blocks 409 if products exist — 47a3e8a
+- [x] Frontend admin: CategoriesView loads admin endpoint; product count badge; sort ↑/↓ arrows (swap sort_order); 409 surfaced as readable message
+- [x] Frontend shop: category pills from API (no DEFAULT_CATEGORIES fallback); pills hidden when 0 products in catalog; combined search+category filter; search clear button; empty-state message
+- [x] Backend: products.in_stock bool exists; PUT /api/admin/products/:id handles in_stock toggle; POST /api/orders validates in_stock → 400 + readable product name
+- [x] Frontend admin: per-product in-stock toggle (Mark In / Mark Out) with immediate PUT write
+- [x] Frontend shop: out-of-stock products show OUT OF STOCK overlay + badge + disabled Add-to-Cart
+- [x] CartView: OOS order failure surfaces as inline error banner (not alert)
+- [x] AdminView: inline "+ New" category button creates category and auto-selects in dropdown
+- [x] Category deletion strategy: BLOCK — 409 with count if products exist; admin must reassign first
+- [x] Uncategorized (id=4): 0 products at phase start; behaves like any other category; hidden from pills when empty
+- Frontend commit: 52c7b64 | Backend commit: 47a3e8a
 
 ### Phase 5 — Landing page
 - [ ] Frontend: hero section above shop grid (value props: instant availability, 10–60 min delivery, effortless selling, built for speed)
@@ -204,6 +208,16 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - Comment added above the check: `// INTERIM — client-side auth removed in Phase 2 (server-side login)`
 - Phase 0 now fully complete. All commits on origin/main.
 - Phase 1 is next: scaffold `everythingbida-backend` (Express + Postgres on Railway).
+
+### 2026-07-29 — Phase 4: Catalog upgrades (categories, stock, search)
+- Session recon: Phase 3 complete; Phase 4 confirmed next. WIP commit 3929845 reviewed — all CSS (stock-badge, out-of-stock-overlay, search-bar, cat-btn) already in current App.jsx from Phase 2C; StockBadge component, ShopView with pills+OOS overlay, AdminView toggleStock all existed. DEFAULT_CATEGORIES was NOT in current code (correctly absent). Zero build needed for CSS.
+- **Uncategorized product count:** 0 at phase start. All 3 migrated products in "Meats" (id=2).
+- Backend (47a3e8a): GET /api/categories + GET /api/admin/categories both include product_count (LEFT JOIN COUNT). DELETE /api/admin/categories/:id blocks with 409 + "Cannot delete: N product(s) use this category. Reassign them first." if products exist.
+- Frontend (52c7b64): ShopView — category pills filtered to only categories with ≥1 product in loaded catalog; search clear button; combined search+category filter. CategoriesView — upgraded to load from admin endpoint (product_count badge, sort ↑/↓ arrows swapping sort_order between adjacent rows, graceful 409 message on delete attempt). AdminView — inline "+ New" in category dropdown (creates via API, auto-selects, no page leave). CartView — inline error banner for order failures (surfaces OOS message "Product out of stock: [name]" from backend).
+- **Category deletion behaviour: BLOCK.** Chosen because it is explicit, forces conscious product reassignment, and avoids any dependency on "Uncategorized" category existing by name.
+- Smoke (31/31 passed): (a) category created → in public API + admin API ✓; (b) product created with new category → catalog shows category_name ✓; (c) in_stock toggled false → product still in catalog with in_stock=false ✓; (d) OOS order attempt → 400 "Product out of stock: Smoke Broccoli" ✓; (e) search "smoke"→match, "smoke"+"Fresh Chicken"→no match, combined category+search→1 result, "xyzzy"→0 results ✓; (f) DELETE with 1 product → 409 block ✓; after reassign → 204 ✓; (g) 3 migrated products + images all 200/image/jpeg ✓.
+- Test data created and cleaned: "Smoke Test Veg" category (id deleted), "Smoke Broccoli" product (id=5, deleted).
+- Site loads 200 on https://everythingbida.com post-deploy. Phase 5 (landing page) is next.
 
 ### 2026-07-29 — Phase 3: Delivery locations end-to-end
 - Session recon: Phase 2 all done; locations CRUD already existed from Phase 2A (backend); LocationsView, admin orders query with location_name JOIN already existed from Phase 2C. Phase 3 checkboxes all unchecked.

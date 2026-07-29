@@ -253,8 +253,8 @@ export default function App() {
         {currentView === "cart" && <CartView cart={cart} updateQty={updateQty} removeFromCart={removeFromCart} placeOrder={placeOrder} bank={bank} locations={locations} />}
         {currentView === "track" && <TrackOrderView />}
         {currentView === "chat" && <ChatView isAdmin={isAdmin} selectedOrder={selectedOrder} setSelectedOrder={setSelectedOrder} />}
-        {currentView === "admin" && isAdmin && <AdminView products={products} setProducts={setProducts} categories={categories} />}
-        {currentView === "categories" && isAdmin && <CategoriesView categories={categories} setCategories={setCategories} />}
+        {currentView === "admin" && isAdmin && <AdminView products={products} setProducts={setProducts} categories={categories} setCategories={setCategories} />}
+        {currentView === "categories" && isAdmin && <CategoriesView setCategories={setCategories} />}
         {currentView === "locations" && isAdmin && <LocationsView setLocations={setLocations} />}
         {currentView === "orders" && isAdmin && <OrdersView setSelectedOrder={setSelectedOrder} setCurrentView={setCurrentView} />}
         {currentView === "bank" && isAdmin && <BankView bank={bank} setBank={setBank} />}
@@ -341,6 +341,9 @@ function ShopView({ products, addToCart, setCurrentView, categories }) {
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
+  // Only show category pills that have at least one product in the current catalog
+  const visibleCategories = categories.filter(c => products.some(p => p.category_name === c.name));
+
   const filtered = products.filter(p => {
     const matchesSearch = !searchText ||
       p.name.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -353,10 +356,13 @@ function ShopView({ products, addToCart, setCurrentView, categories }) {
     <>
       <div className="search-bar">
         <input type="text" className="input" placeholder="🔍 Search products..." value={searchText} onChange={e => setSearchText(e.target.value)} />
+        {searchText && (
+          <button className="btn btn-outline" style={{ padding: "12px 14px", whiteSpace: "nowrap" }} onClick={() => setSearchText("")}>✕ Clear</button>
+        )}
         <button className="btn btn-outline" style={{ padding: "12px 20px", whiteSpace: "nowrap" }} onClick={() => setCurrentView("track")}>📦 Track Order</button>
       </div>
       <div className="category-filters">
-        {["All", ...categories.map(c => c.name)].map(cat => (
+        {["All", ...visibleCategories.map(c => c.name)].map(cat => (
           <button key={cat} className={`cat-btn ${selectedCategory === cat ? "active" : ""}`} onClick={() => setSelectedCategory(cat)}>{cat}</button>
         ))}
       </div>
@@ -510,6 +516,7 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
   const [placing, setPlacing] = useState(false);
   const [locationSearch, setLocationSearch] = useState("");
   const [errors, setErrors] = useState({});
+  const [orderError, setOrderError] = useState("");
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const selectedLoc = locations.find(l => l.id === Number(customerInfo.locationId));
@@ -536,11 +543,12 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
     }
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     setErrors({});
+    setOrderError("");
     setPlacing(true);
     try {
       await placeOrder(customerInfo);
     } catch (err) {
-      alert('Order failed: ' + err.message);
+      setOrderError(err.message || 'Order failed. Please try again.');
     } finally {
       setPlacing(false);
     }
@@ -663,6 +671,11 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
           <p style={{ color: "#92400E" }}>{bank.acc_num}</p>
           <p style={{ color: "#92400E" }}>{bank.acc_name}</p>
         </div>
+        {orderError && (
+          <div style={{ background: "#FEE2E2", border: "2px solid #FCA5A5", borderRadius: "10px", padding: "14px", marginBottom: "14px", color: "#DC2626", fontWeight: "600" }}>
+            ⚠️ {orderError}
+          </div>
+        )}
         <button className="btn" style={{ width: "100%", padding: "18px", fontSize: "20px" }} onClick={handleSubmit} disabled={placing}>
           {placing ? "Placing Order…" : "Place Order"}
         </button>
@@ -671,13 +684,17 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
   );
 }
 
-function AdminView({ products, setProducts, categories }) {
+function AdminView({ products, setProducts, categories, setCategories }) {
   const initialForm = { name: "", category_id: "", price: "", description: "", image_id: null, in_stock: true };
   const [formData, setFormData] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
   const [imgPreview, setImgPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatEmoji, setNewCatEmoji] = useState("");
+  const [savingCat, setSavingCat] = useState(false);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
@@ -720,6 +737,22 @@ function AdminView({ products, setProducts, categories }) {
     setFormData(initialForm);
     setImgPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCatName.trim()) return;
+    setSavingCat(true);
+    try {
+      const created = await api.createCategory({ name: newCatName.trim(), emoji: newCatEmoji.trim() });
+      setCategories(prev => [...prev, created]);
+      setFormData(f => ({ ...f, category_id: String(created.id) }));
+      setAddingCategory(false);
+      setNewCatName(""); setNewCatEmoji("");
+    } catch (err) {
+      alert('Error creating category: ' + err.message);
+    } finally {
+      setSavingCat(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -796,12 +829,24 @@ function AdminView({ products, setProducts, categories }) {
         </div>
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageUpload} style={{ display: "none" }} />
         <input type="text" className="input" placeholder="Product Name" value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} />
-        <select className="input" value={formData.category_id} onChange={e => setFormData(f => ({ ...f, category_id: e.target.value }))}>
-          <option value="">No category</option>
-          {categories.map(cat => (
-            <option key={cat.id} value={cat.id}>{cat.emoji ? cat.emoji + " " : ""}{cat.name}</option>
-          ))}
-        </select>
+        {addingCategory ? (
+          <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
+            <input className="input" style={{ marginBottom: 0, width: "54px" }} placeholder="🛍️" value={newCatEmoji} onChange={e => setNewCatEmoji(e.target.value)} />
+            <input className="input" style={{ marginBottom: 0, flex: 1, minWidth: "120px" }} placeholder="New category name…" value={newCatName} onChange={e => setNewCatName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleCreateCategory()} autoFocus />
+            <button className="btn" style={{ padding: "8px 14px", fontSize: "13px" }} onClick={handleCreateCategory} disabled={savingCat || !newCatName.trim()}>{savingCat ? "…" : "Create"}</button>
+            <button className="btn btn-outline" style={{ padding: "8px 14px", fontSize: "13px" }} onClick={() => { setAddingCategory(false); setNewCatName(""); setNewCatEmoji(""); }}>Cancel</button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+            <select className="input" style={{ marginBottom: 0, flex: 1 }} value={formData.category_id} onChange={e => setFormData(f => ({ ...f, category_id: e.target.value }))}>
+              <option value="">No category</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.emoji ? cat.emoji + " " : ""}{cat.name}</option>
+              ))}
+            </select>
+            <button className="btn btn-outline" style={{ padding: "10px 14px", fontSize: "13px", whiteSpace: "nowrap" }} onClick={() => setAddingCategory(true)}>+ New</button>
+          </div>
+        )}
         <input type="number" className="input" placeholder="Price per kg (₦)" value={formData.price} onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} />
         <textarea className="input" placeholder="Description" value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} rows="3" />
         <label style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "15px", cursor: "pointer", color: "#92400E" }}>
@@ -846,19 +891,31 @@ function AdminView({ products, setProducts, categories }) {
   );
 }
 
-function CategoriesView({ categories, setCategories }) {
+function CategoriesView({ setCategories }) {
+  const [adminCats, setAdminCats] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [newEmoji, setNewEmoji] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState("");
   const [editEmoji, setEditEmoji] = useState("");
 
+  const refresh = async () => {
+    const cats = await api.getAdminCategories();
+    setAdminCats(cats);
+    // Sync App state (ShopView pills + AdminView dropdown)
+    setCategories(cats.map(({ id, name, emoji, sort_order }) => ({ id, name, emoji, sort_order })));
+    setLoading(false);
+  };
+
+  useEffect(() => { refresh(); }, []); // eslint-disable-line
+
   const addCategory = async () => {
     if (!newName.trim()) return;
     try {
-      const created = await api.createCategory({ name: newName.trim(), emoji: newEmoji.trim() });
-      setCategories(prev => [...prev, created]);
+      await api.createCategory({ name: newName.trim(), emoji: newEmoji.trim(), sort_order: adminCats.length });
       setNewName(""); setNewEmoji("");
+      await refresh();
     } catch (err) { alert('Error: ' + err.message); }
   };
 
@@ -867,19 +924,38 @@ function CategoriesView({ categories, setCategories }) {
   const saveEdit = async () => {
     if (!editValue.trim()) return;
     try {
-      const updated = await api.updateCategory(editingId, { name: editValue.trim(), emoji: editEmoji.trim() });
-      setCategories(prev => prev.map(c => c.id === editingId ? updated : c));
+      await api.updateCategory(editingId, { name: editValue.trim(), emoji: editEmoji.trim() });
       setEditingId(null);
+      await refresh();
     } catch (err) { alert('Error: ' + err.message); }
   };
 
-  const deleteCategory = async (id) => {
-    if (!window.confirm("Delete this category?")) return;
+  const deleteCategory = async (cat) => {
+    if (!window.confirm(`Delete category "${cat.name}"?`)) return;
     try {
-      await api.deleteCategory(id);
-      setCategories(prev => prev.filter(c => c.id !== id));
+      await api.deleteCategory(cat.id);
+      await refresh();
+    } catch (err) {
+      // Surface 409 (products exist) as a clear message, not a generic alert
+      alert(err.message);
+    }
+  };
+
+  const moveCategory = async (idx, direction) => {
+    const swapIdx = idx + direction;
+    if (swapIdx < 0 || swapIdx >= adminCats.length) return;
+    const a = adminCats[idx];
+    const b = adminCats[swapIdx];
+    try {
+      await Promise.all([
+        api.updateCategory(a.id, { sort_order: b.sort_order }),
+        api.updateCategory(b.id, { sort_order: a.sort_order }),
+      ]);
+      await refresh();
     } catch (err) { alert('Error: ' + err.message); }
   };
+
+  if (loading) return <div className="card text-center" style={{ padding: "40px" }}><p style={{ color: "#92400E" }}>Loading categories…</p></div>;
 
   return (
     <>
@@ -893,10 +969,10 @@ function CategoriesView({ categories, setCategories }) {
         </div>
       </div>
       <div className="card">
-        <h3 style={{ color: "#78350F", marginBottom: "15px" }}>Current Categories ({categories.length})</h3>
-        {categories.length === 0 && <p style={{ color: "#92400E" }}>No categories yet.</p>}
-        {categories.map((cat) => (
-          <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", borderBottom: "1px solid #FDE68A", flexWrap: "wrap" }}>
+        <h3 style={{ color: "#78350F", marginBottom: "15px" }}>Current Categories ({adminCats.length})</h3>
+        {adminCats.length === 0 && <p style={{ color: "#92400E" }}>No categories yet.</p>}
+        {adminCats.map((cat, idx) => (
+          <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px", borderBottom: "1px solid #FDE68A", flexWrap: "wrap" }}>
             {editingId === cat.id ? (
               <>
                 <input className="input" style={{ marginBottom: 0, width: "60px" }} value={editEmoji} onChange={e => setEditEmoji(e.target.value)} />
@@ -906,10 +982,15 @@ function CategoriesView({ categories, setCategories }) {
               </>
             ) : (
               <>
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <button onClick={() => moveCategory(idx, -1)} disabled={idx === 0} style={{ border: "none", background: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "#FDE68A" : "#D97706", fontSize: "12px", padding: "0 4px", lineHeight: 1 }}>▲</button>
+                  <button onClick={() => moveCategory(idx, 1)} disabled={idx === adminCats.length - 1} style={{ border: "none", background: "none", cursor: idx === adminCats.length - 1 ? "default" : "pointer", color: idx === adminCats.length - 1 ? "#FDE68A" : "#D97706", fontSize: "12px", padding: "0 4px", lineHeight: 1 }}>▼</button>
+                </div>
                 <span className="cat-btn active" style={{ cursor: "default" }}>{cat.emoji ? cat.emoji + " " : ""}{cat.name}</span>
+                <span className="order-count-badge">{cat.product_count} product{cat.product_count !== 1 ? 's' : ''}</span>
                 <span style={{ flex: 1 }} />
                 <button className="btn btn-outline" style={{ padding: "6px 14px", fontSize: "12px" }} onClick={() => startEdit(cat)}>✏️ Edit</button>
-                <button className="btn btn-outline" style={{ padding: "6px 14px", fontSize: "12px", borderColor: "#FCA5A5", color: "#DC2626" }} onClick={() => deleteCategory(cat.id)}>🗑️ Delete</button>
+                <button className="btn btn-outline" style={{ padding: "6px 14px", fontSize: "12px", borderColor: "#FCA5A5", color: "#DC2626" }} onClick={() => deleteCategory(cat)}>🗑️ Delete</button>
               </>
             )}
           </div>
