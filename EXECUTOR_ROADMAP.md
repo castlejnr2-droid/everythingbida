@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 1B — Railway provisioning + deploy (awaiting operator .env staging). Phase 1A scaffold complete (backend repo created, committed, pushed).**
+**Phase 2 — Data migration + frontend cutover. Phase 1 fully complete: backend live at https://everythingbida-backend-production.up.railway.app, all gates green.**
 
 ---
 
@@ -35,7 +35,12 @@
 - [x] CORS configured to `FRONTEND_ORIGIN` env var (comma-separated exact origins, no wildcard)
 - [x] `GET /health` returns `{ok: true, migrations: <count>}`; migrations run on boot
 - [x] node --check passes all src files — commit 7f55047 pushed to origin/master
-- [ ] Deploy to Railway; verify boot log shows no errors; hit `/health`
+- [x] Deploy to Railway; verify boot log shows no errors; hit `/health` — all gates green (2026-07-29)
+  - Railway project: everythingbida-backend | Postgres svc: 838c87cc | Backend svc: d928aaca
+  - Public URL: https://everythingbida-backend-production.up.railway.app
+  - /health: {ok:true,migrations:1} | login 200+token | 401 no-token | /images/99999999 → 404
+  - DB: all 8 tables verified (categories, locations, images, vendors, products, orders, messages, bank_settings)
+  - NOTE: SSL required for Railway public proxy (rlwy.net); no SSL for internal private network (.railway.internal)
 
 ### Phase 2 — Data migration + frontend cutover
 - [ ] Write one-off migration script: read Netlify Blobs (products/orders/messages/bank), decode base64 images → `images` table, insert rows
@@ -129,6 +134,16 @@
 - `node --check` passed all src files
 - **7f55047** — pre-amend hash recorded in PROGRESS.md; pushed as bb948c3
 - Next: Phase 1B — Railway provisioning + deploy (operator must stage .env values first)
+
+### 2026-07-29 — Phase 1B: Railway provisioning + deploy complete
+- Branch renamed master→main; GitHub default branch updated.
+- Railway project `everythingbida-backend` (8b884794): Postgres service (838c87cc) + backend service (d928aaca) — both in same project/environment.
+- Key lesson: Railway Postgres public proxy (*.rlwy.net) requires SSL (`rejectUnauthorized:false`); private network (.railway.internal) needs no SSL. Initial deploy was corrupted by `railway up` deploying Node.js onto Postgres service slot — fixed by deleting and recreating Postgres service.
+- Env set: DATABASE_URL (Railway ref to Postgres.DATABASE_PUBLIC_URL), ADMIN_PASSWORD_HASH (bcrypt cost 10), SESSION_SECRET (32 random bytes hex), FRONTEND_ORIGIN. Values also mirrored to local .env (gitignored).
+- Gates: /health {ok:true,migrations:1} | POST /api/admin/login 200+token | requireAdmin route 401 no-token / 201 with-token | GET /api/images/99999999 → 404
+- All 8 tables confirmed in DB (categories, locations, images, vendors, products, orders, messages, bank_settings + schema_migrations)
+- **19337f6** — Phase 1B docs pre-amend hash; pushed as 79a80ae
+- Phase 1 fully complete. Next: Phase 2 — data migration + frontend cutover to Vercel.
 
 ### 2026-07-29 — Phase 0 final: D1 interim password rotation
 - Replaced leaked password at App.jsx:191 with a new 16-char random value (letters + digits, no ambiguous chars).
