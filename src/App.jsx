@@ -152,7 +152,20 @@ const styles = `
   .inline-error { color: #DC2626; font-size: 13px; margin-bottom: 10px; display: block; }
   .loc-inactive-row { opacity: 0.55; background: #F9FAFB; }
   .order-count-badge { font-size: 11px; background: #E0E7FF; color: #3730A3; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+  .pending-badge { font-size: 11px; background: #FEE2E2; color: #DC2626; padding: 2px 7px; border-radius: 10px; font-weight: 700; margin-left: 4px; }
+  .vendor-status-pending { background: #FEF3C7; color: #92400E; }
+  .vendor-status-contacted { background: #DBEAFE; color: #1E40AF; }
+  .vendor-status-approved { background: #D1FAE5; color: #065F46; }
+  .vendor-status-rejected { background: #FEE2E2; color: #DC2626; }
+  .vendor-filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+  .vendor-filter-tab { padding: 5px 14px; border-radius: 20px; border: 2px solid #FDE68A; background: white; color: #92400E; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; }
+  .vendor-filter-tab:hover { border-color: #D97706; background: #FEF3C7; }
+  .vendor-filter-tab.active { background: linear-gradient(135deg, #D97706, #B45309); color: white; border-color: #D97706; }
+  .vendor-card { border: 1px solid #FDE68A; border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+  .vendor-photo { width: 80px; height: 80px; border-radius: 10px; background-size: cover; background-position: center; background-color: #FEF3C7; display: flex; align-items: center; justify-content: center; font-size: 36px; flex-shrink: 0; }
+  .seller-form-confirm { background: #D1FAE5; border: 2px solid #6EE7B7; border-radius: 14px; padding: 28px; text-align: center; }
 `;
+
 
 export default function App() {
   const [products, setProducts] = useState([]);
@@ -167,6 +180,8 @@ export default function App() {
   const [successOrder, setSuccessOrder] = useState(null);
   const [loginError, setLoginError] = useState("");
   const [cart, setCart] = useState([]);
+  const [approvedVendors, setApprovedVendors] = useState([]);
+  const [pendingVendorCount, setPendingVendorCount] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -185,6 +200,17 @@ export default function App() {
     return () => window.removeEventListener('eb:logout', onLogout);
   }, []);
 
+  const refreshVendorData = useCallback(async () => {
+    try {
+      const [approved, pending] = await Promise.all([
+        api.getAdminVendors('approved'),
+        api.getAdminVendors('pending'),
+      ]);
+      setApprovedVendors(approved);
+      setPendingVendorCount(pending.length);
+    } catch { /* token may not be set yet */ }
+  }, []);
+
   const handleLogin = async (password) => {
     try {
       const { token } = await api.adminLogin(password);
@@ -193,15 +219,24 @@ export default function App() {
       setShowLoginModal(false);
       setLoginError("");
       setCurrentView("admin");
+      // Fetch vendor data now that we have a token
+      setTimeout(refreshVendorData, 0);
     } catch (err) {
       setLoginError(err.message || "Invalid password");
     }
   };
 
+  // Refresh vendor data if already logged in on page load
+  useEffect(() => {
+    if (isAdmin) refreshVendorData();
+  }, [isAdmin, refreshVendorData]);
+
   const handleLogout = () => {
     api.clearToken();
     setIsAdmin(false);
     setCurrentView("shop");
+    setApprovedVendors([]);
+    setPendingVendorCount(0);
   };
 
   const addToCart = (product) => {
@@ -247,15 +282,18 @@ export default function App() {
     <div className="eb-wrap">
       <style>{styles}</style>
       <Header isAdmin={isAdmin} currentView={currentView} setCurrentView={setCurrentView}
-        setShowLoginModal={setShowLoginModal} handleLogout={handleLogout} cartCount={cart.length} />
+        setShowLoginModal={setShowLoginModal} handleLogout={handleLogout} cartCount={cart.length}
+        pendingVendorCount={pendingVendorCount} />
       <main className="main">
         {currentView === "shop" && <ShopView products={products} addToCart={addToCart} setCurrentView={setCurrentView} categories={categories} />}
         {currentView === "cart" && <CartView cart={cart} updateQty={updateQty} removeFromCart={removeFromCart} placeOrder={placeOrder} bank={bank} locations={locations} />}
         {currentView === "track" && <TrackOrderView />}
         {currentView === "chat" && <ChatView isAdmin={isAdmin} selectedOrder={selectedOrder} setSelectedOrder={setSelectedOrder} />}
-        {currentView === "admin" && isAdmin && <AdminView products={products} setProducts={setProducts} categories={categories} setCategories={setCategories} />}
+        {currentView === "become-seller" && <BecomeSellerView />}
+        {currentView === "admin" && isAdmin && <AdminView products={products} setProducts={setProducts} categories={categories} setCategories={setCategories} approvedVendors={approvedVendors} />}
         {currentView === "categories" && isAdmin && <CategoriesView setCategories={setCategories} />}
         {currentView === "locations" && isAdmin && <LocationsView setLocations={setLocations} />}
+        {currentView === "sellers" && isAdmin && <SellersView onVendorDataChanged={refreshVendorData} />}
         {currentView === "orders" && isAdmin && <OrdersView setSelectedOrder={setSelectedOrder} setCurrentView={setCurrentView} />}
         {currentView === "bank" && isAdmin && <BankView bank={bank} setBank={setBank} />}
       </main>
@@ -287,13 +325,14 @@ export default function App() {
   );
 }
 
-function Header({ isAdmin, currentView, setCurrentView, setShowLoginModal, handleLogout, cartCount }) {
+function Header({ isAdmin, currentView, setCurrentView, setShowLoginModal, handleLogout, cartCount, pendingVendorCount }) {
   const navItems = isAdmin
     ? [
         { id: "shop", label: "Shop", icon: "🏪" },
         { id: "admin", label: "Products", icon: "📦" },
         { id: "categories", label: "Categories", icon: "🏷️" },
         { id: "locations", label: "Locations", icon: "📍" },
+        { id: "sellers", label: "Sellers", icon: "🏬", badge: pendingVendorCount > 0 ? pendingVendorCount : null },
         { id: "orders", label: "Orders", icon: "📋" },
         { id: "bank", label: "Bank", icon: "🏦" },
         { id: "chat", label: "Messages", icon: "💬" },
@@ -303,6 +342,7 @@ function Header({ isAdmin, currentView, setCurrentView, setShowLoginModal, handl
         { id: "cart", label: `Cart${cartCount > 0 ? ` (${cartCount})` : ""}`, icon: "🛒" },
         { id: "track", label: "Track", icon: "📦" },
         { id: "chat", label: "Chat", icon: "💬" },
+        { id: "become-seller", label: "Sell With Us", icon: "🏬" },
       ];
   return (
     <header className="header">
@@ -320,6 +360,7 @@ function Header({ isAdmin, currentView, setCurrentView, setShowLoginModal, handl
           {navItems.map(item => (
             <button key={item.id} className={`nav-btn ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
               {item.icon} {item.label}
+              {item.badge != null && <span className="pending-badge">{item.badge}</span>}
             </button>
           ))}
           {isAdmin
@@ -684,8 +725,8 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
   );
 }
 
-function AdminView({ products, setProducts, categories, setCategories }) {
-  const initialForm = { name: "", category_id: "", price: "", description: "", image_id: null, in_stock: true };
+function AdminView({ products, setProducts, categories, setCategories, approvedVendors }) {
+  const initialForm = { name: "", category_id: "", price: "", description: "", image_id: null, in_stock: true, vendor_id: "" };
   const [formData, setFormData] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
   const [imgPreview, setImgPreview] = useState(null);
@@ -727,6 +768,7 @@ function AdminView({ products, setProducts, categories, setCategories }) {
       description: product.description || "",
       image_id: product.image_id || null,
       in_stock: product.in_stock,
+      vendor_id: product.vendor_id ? String(product.vendor_id) : "",
     });
     setImgPreview(product.image_id ? api.imageUrl(product.image_id) : null);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -764,6 +806,7 @@ function AdminView({ products, setProducts, categories, setCategories }) {
       category_id: formData.category_id ? parseInt(formData.category_id) : null,
       image_id: formData.image_id,
       in_stock: formData.in_stock,
+      vendor_id: formData.vendor_id ? parseInt(formData.vendor_id) : null,
     };
     try {
       if (editingId) {
@@ -853,6 +896,14 @@ function AdminView({ products, setProducts, categories, setCategories }) {
           <input type="checkbox" checked={formData.in_stock} onChange={e => setFormData(f => ({ ...f, in_stock: e.target.checked }))} style={{ width: "18px", height: "18px" }} />
           In Stock
         </label>
+        {approvedVendors.length > 0 && (
+          <select className="input" value={formData.vendor_id} onChange={e => setFormData(f => ({ ...f, vendor_id: e.target.value }))}>
+            <option value="">No supplier/vendor</option>
+            {approvedVendors.map(v => (
+              <option key={v.id} value={v.id}>{v.name}</option>
+            ))}
+          </select>
+        )}
         <div style={{ display: "flex", gap: "10px" }}>
           {editingId && <button className="btn btn-outline" style={{ flex: 1 }} onClick={cancelEdit}>Cancel</button>}
           <button className="btn" style={{ flex: 1 }} onClick={handleSubmit}>{editingId ? "Update Product" : "Add Product"}</button>
@@ -1454,6 +1505,271 @@ function BankView({ bank, setBank }) {
         <button className="btn" style={{ width: "100%", marginTop: "10px" }} onClick={handleSubmit}>Save Changes</button>
       </div>
     </div>
+  );
+}
+
+// --- Phone helpers ---
+function isValidNigerianPhone(phone) {
+  const digits = phone.replace(/\D/g, '');
+  // accept 10 (local no leading 0), 11 (0XXXXXXXXXX), 13 (234XXXXXXXXXX)
+  return (digits.length === 10) || (digits.length === 11 && digits[0] === '0') || (digits.length === 13 && digits.startsWith('234'));
+}
+
+function normalizePhoneForWhatsApp(phone) {
+  let p = phone.replace(/[\s\-()]/g, '');
+  if (p.startsWith('0')) p = '234' + p.slice(1);
+  if (p.startsWith('+')) p = p.slice(1);
+  return p;
+}
+
+// --- BecomeSellerView ---
+function BecomeSellerView() {
+  const [form, setForm] = useState({ name: '', phone: '', product_types: '', notes: '' });
+  const [errors, setErrors] = useState({});
+  const [imgPreview, setImgPreview] = useState(null);
+  const [imgMime, setImgMime] = useState(null);
+  const [imgData, setImgData] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setErrors(prev => ({ ...prev, photo: 'Max photo size is 5MB' })); return; }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImgPreview(reader.result);
+      setImgMime(file.type);
+      setImgData(reader.result.split(',')[1]);
+      setErrors(prev => ({ ...prev, photo: undefined }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const validate = () => {
+    const e = {};
+    if (!form.name.trim()) e.name = 'Business or seller name is required';
+    if (!form.phone.trim()) {
+      e.phone = 'Phone number is required';
+    } else if (!isValidNigerianPhone(form.phone.trim())) {
+      e.phone = 'Enter a valid Nigerian phone number (e.g. 08012345678 or +2348012345678)';
+    }
+    if (!form.product_types.trim()) e.product_types = 'Please describe what you sell';
+    return e;
+  };
+
+  const handleSubmit = async () => {
+    const e = validate();
+    if (Object.keys(e).length > 0) { setErrors(e); return; }
+    setErrors({});
+    setSubmitting(true);
+    try {
+      let image_id = null;
+      if (imgData && imgMime) {
+        setUploading(true);
+        const res = await api.postVendorImage(imgMime, imgData);
+        image_id = res.id;
+        setUploading(false);
+      }
+      await api.postVendorApplication({
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        product_types: form.product_types.trim(),
+        notes: form.notes.trim(),
+        image_id,
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setErrors({ submit: err.message || 'Submission failed. Please try again.' });
+    } finally {
+      setSubmitting(false);
+      setUploading(false);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div style={{ maxWidth: "520px", margin: "0 auto" }}>
+        <div className="seller-form-confirm">
+          <div style={{ fontSize: "60px", marginBottom: "16px" }}>🎉</div>
+          <h2 style={{ color: "#065F46", marginBottom: "12px", fontSize: "22px" }}>Application Received!</h2>
+          <p style={{ color: "#065F46", lineHeight: 1.6, marginBottom: "10px" }}>
+            Thank you for applying to sell on EverythingBida. Our team will review your products and <strong>call you on the phone number you provided</strong> to verify and approve your listing.
+          </p>
+          <p style={{ color: "#6B7280", fontSize: "13px" }}>We typically reach out within 1–2 business days.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: "520px", margin: "0 auto" }}>
+      <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#78350F", marginBottom: "8px" }}>🏬 Become a Seller</h2>
+      <p style={{ color: "#92400E", marginBottom: "24px", lineHeight: 1.6 }}>
+        List your products in seconds and reach customers across Bida instantly. Our team verifies product quality before approving — so customers trust every listing.
+      </p>
+      <div className="card">
+        <input type="text" className="input" placeholder="Business or seller name *"
+          value={form.name} onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setErrors(p => ({ ...p, name: undefined })); }} />
+        {errors.name && <span className="inline-error">{errors.name}</span>}
+
+        <input type="tel" className="input" placeholder="Phone number * (e.g. 08012345678)"
+          value={form.phone} onChange={e => { setForm(f => ({ ...f, phone: e.target.value })); setErrors(p => ({ ...p, phone: undefined })); }} />
+        {errors.phone && <span className="inline-error">{errors.phone}</span>}
+
+        <textarea className="input" placeholder="What do you sell? * (e.g. fresh goat meat, frozen chicken, vegetables…)"
+          value={form.product_types} rows="3"
+          onChange={e => { setForm(f => ({ ...f, product_types: e.target.value })); setErrors(p => ({ ...p, product_types: undefined })); }} />
+        {errors.product_types && <span className="inline-error">{errors.product_types}</span>}
+
+        <textarea className="input" placeholder="Anything else we should know? (optional)"
+          value={form.notes} rows="2"
+          onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+
+        <div className="image-upload-area" onClick={() => !imgPreview && fileInputRef.current?.click()}>
+          {imgPreview ? (
+            <div style={{ position: "relative" }}>
+              <img src={imgPreview} alt="Preview" style={{ maxWidth: "100%", maxHeight: "180px", borderRadius: "8px" }} />
+              <button onClick={e => { e.stopPropagation(); setImgPreview(null); setImgData(null); setImgMime(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                style={{ position: "absolute", top: "8px", right: "8px", padding: "6px 10px", borderRadius: "6px", border: "none", background: "#DC2626", color: "white", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}>
+                Remove
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: "36px" }}>📸</div>
+              <p style={{ color: "#D97706", fontWeight: "bold", marginBottom: "4px" }}>Upload a photo (optional)</p>
+              <p style={{ color: "#92400E", fontSize: "12px" }}>Products or shopfront — JPG, PNG or WebP, max 5MB</p>
+            </>
+          )}
+        </div>
+        {errors.photo && <span className="inline-error">{errors.photo}</span>}
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageSelect} style={{ display: "none" }} />
+
+        {errors.submit && (
+          <div style={{ background: "#FEE2E2", border: "2px solid #FCA5A5", borderRadius: "10px", padding: "12px", marginBottom: "12px", color: "#DC2626", fontWeight: 600, fontSize: "14px" }}>
+            ⚠️ {errors.submit}
+          </div>
+        )}
+
+        <button className="btn" style={{ width: "100%", padding: "16px", fontSize: "17px" }} onClick={handleSubmit} disabled={submitting || uploading}>
+          {uploading ? 'Uploading photo…' : submitting ? 'Submitting…' : 'Submit Application'}
+        </button>
+        <p style={{ color: "#92400E", fontSize: "12px", textAlign: "center", marginTop: "10px" }}>
+          No login required. We will call you to confirm details before approving.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// --- SellersView (admin) ---
+const VENDOR_STATUS_LABELS = { pending: 'Pending', contacted: 'Contacted', approved: 'Approved', rejected: 'Rejected' };
+const VENDOR_STATUSES = ['pending', 'contacted', 'approved', 'rejected'];
+
+function SellersView({ onVendorDataChanged }) {
+  const [vendors, setVendors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [updatingId, setUpdatingId] = useState(null);
+
+  const refresh = async (filter) => {
+    setLoading(true);
+    try {
+      const data = await api.getAdminVendors(filter === 'all' ? null : filter);
+      setVendors(data);
+    } catch (err) {
+      console.error('Sellers fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { refresh(statusFilter); }, [statusFilter]); // eslint-disable-line
+
+  const pendingCount = vendors.filter(v => v.status === 'pending').length;
+
+  const handleStatusChange = async (id, status) => {
+    setUpdatingId(id);
+    try {
+      await api.putVendorStatus(id, status);
+      setVendors(prev => prev.map(v => v.id === id ? { ...v, status } : v));
+      // If filter is active and vendor no longer matches, remove from list
+      if (statusFilter !== 'all' && status !== statusFilter) {
+        setVendors(prev => prev.filter(v => v.id !== id));
+      }
+      onVendorDataChanged();
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  return (
+    <>
+      <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#78350F", marginBottom: "6px" }}>
+        🏬 Seller Applications
+        {pendingCount > 0 && statusFilter === 'all' && (
+          <span className="pending-badge" style={{ fontSize: "14px", marginLeft: "10px", verticalAlign: "middle" }}>{pendingCount} pending</span>
+        )}
+      </h2>
+      <p style={{ color: "#92400E", marginBottom: "20px" }}>Review vendor applications and update their status.</p>
+
+      <div className="vendor-filter-tabs">
+        {['all', ...VENDOR_STATUSES].map(s => (
+          <button key={s} className={`vendor-filter-tab ${statusFilter === s ? 'active' : ''}`} onClick={() => setStatusFilter(s)}>
+            {s === 'all' ? 'All' : VENDOR_STATUS_LABELS[s]}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="card text-center" style={{ padding: "40px" }}><p style={{ color: "#92400E" }}>Loading…</p></div>
+      ) : vendors.length === 0 ? (
+        <div className="card text-center" style={{ padding: "40px" }}>
+          <div style={{ fontSize: "50px", marginBottom: "12px" }}>📭</div>
+          <p style={{ color: "#92400E" }}>No {statusFilter === 'all' ? '' : VENDOR_STATUS_LABELS[statusFilter].toLowerCase() + ' '}applications.</p>
+        </div>
+      ) : vendors.map(v => {
+        const waPhone = normalizePhoneForWhatsApp(v.phone);
+        const waMsg = encodeURIComponent(`Hi ${v.name}, this is EverythingBida. We received your seller application and would like to connect with you regarding your products: ${v.product_types}.`);
+        return (
+          <div key={v.id} className="card vendor-card">
+            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+              <div className="vendor-photo" style={v.image_id ? { backgroundImage: `url(${api.imageUrl(v.image_id)})` } : {}}>
+                {!v.image_id && '🏬'}
+              </div>
+              <div style={{ flex: 1, minWidth: "200px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginBottom: "4px" }}>
+                  <h3 style={{ color: "#78350F", fontSize: "18px" }}>{v.name}</h3>
+                  <span className={`status-badge vendor-status-${v.status}`}>{VENDOR_STATUS_LABELS[v.status]}</span>
+                </div>
+                <p style={{ color: "#92400E", fontSize: "14px", marginBottom: "4px" }}>📞 {v.phone}</p>
+                <p style={{ color: "#78350F", fontSize: "14px", marginBottom: "4px" }}><strong>Products:</strong> {v.product_types}</p>
+                {v.notes && <p style={{ color: "#92400E", fontSize: "13px", marginBottom: "4px" }}><strong>Notes:</strong> {v.notes}</p>}
+                <p style={{ color: "#B45309", fontSize: "12px" }}>Submitted: {new Date(v.created_at).toLocaleString()}</p>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap", alignItems: "center" }}>
+              <select
+                value={v.status}
+                onChange={e => handleStatusChange(v.id, e.target.value)}
+                disabled={updatingId === v.id}
+                style={{ padding: "8px 12px", borderRadius: "8px", border: "2px solid #FDE68A", fontSize: "13px", background: "white", color: "#78350F", flex: 1, minWidth: "150px" }}>
+                {VENDOR_STATUSES.map(s => <option key={s} value={s}>{VENDOR_STATUS_LABELS[s]}</option>)}
+              </select>
+              <a href={`https://wa.me/${waPhone}?text=${waMsg}`} target="_blank" rel="noopener noreferrer"
+                style={{ padding: "8px 14px", borderRadius: "8px", background: "#25D366", color: "white", fontWeight: "bold", fontSize: "13px", textDecoration: "none", whiteSpace: "nowrap" }}>
+                WhatsApp
+              </a>
+            </div>
+          </div>
+        );
+      })}
+    </>
   );
 }
 

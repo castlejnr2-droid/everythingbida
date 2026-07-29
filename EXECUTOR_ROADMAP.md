@@ -8,7 +8,9 @@
 ---
 
 ## Current position
-**Phase 5 — Landing page. Phase 4 COMPLETE.**
+**Phase 5B — Landing page. Phase 5A (seller registration) COMPLETE.**
+
+PHASE ORDER SWAP (2026-07-29): Seller registration (originally Phase 8) moved before landing page (Phase 5A before 5B) so the "Become a Seller" CTA can link to a live form when the landing ships.
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
 
@@ -105,9 +107,20 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [x] Uncategorized (id=4): 0 products at phase start; behaves like any other category; hidden from pills when empty
 - Frontend commit: 52c7b64 | Backend commit: 47a3e8a
 
-### Phase 5 — Landing page
+### Phase 5A — Seller registration ✅ COMPLETE (2026-07-29)
+- [x] Backend: POST /api/vendor-images (public, for seller form photo) — 72a730b
+- [x] Backend: GET /api/admin/vendors?status= optional filter — 72a730b
+- [x] Backend: GET /api/admin/products (admin-only, returns vendor_id) — 72a730b
+- [x] Backend: POST/PUT /api/admin/products accept + persist vendor_id — 72a730b
+- [x] Frontend: BecomeSellerView — name (required), phone (required, Nigerian format validation), product_types (required), notes (optional), photo upload (optional via /api/vendor-images); confirmation screen on success — b92a3c7
+- [x] Frontend: SellersView (admin) — applications newest first, status filter tabs (All/Pending/Contacted/Approved/Rejected), pending-count badge on Sellers nav tab, WhatsApp deep link per application (wa.me/ with prefilled message, phone normalized 0→+234) — b92a3c7
+- [x] Frontend: AdminView product form — optional Supplier/Vendor dropdown (approved vendors only, hidden when none), vendor_id saved on product — b92a3c7
+- [x] Public /api/products does NOT expose vendor_id (confirmed in bundle + API response) — b92a3c7
+- Frontend commit: b92a3c7 | Backend commit: 72a730b
+
+### Phase 5B — Landing page
 - [ ] Frontend: hero section above shop grid (value props: instant availability, 10–60 min delivery, effortless selling, built for speed)
-- [ ] CTA buttons: "Shop Now" → scrolls to/shows shop; "Become a Seller" → seller registration form
+- [ ] CTA buttons: "Shop Now" → scrolls to/shows shop; "Become a Seller" → seller registration form (Phase 5A view)
 - [ ] Mobile-first layout; verify on 375px viewport
 
 ### Phase 6 — Tracking + polling
@@ -128,13 +141,8 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [ ] Frontend admin order card: WhatsApp deep-link button (admin-side only) — opens `wa.me/ADMIN_WHATSAPP_NUMBER?text=...` with order summary
 - [ ] Verify: order with no email → only admin email sent; order with email → both sent; email service down → order still succeeds
 
-### Phase 8 — Seller registration
-- [ ] Backend: `POST /vendors` (public) — accepts name, phone, product_types, notes, optional image
-- [ ] Backend: `GET /vendors` (admin) — list with status filter
-- [ ] Backend: `PATCH /vendors/:id/status` (admin) — set pending|contacted|approved|rejected
-- [ ] Frontend: public seller registration form (name, phone, product types multi-select, optional photo, notes)
-- [ ] Frontend admin: Vendor Applications tab — list by status, status dropdown per application
-- [ ] Frontend admin product form: optional vendor attribution dropdown (lists approved vendors)
+### Phase 8 — Seller registration ✅ MOVED to Phase 5A (COMPLETE 2026-07-29)
+(Originally Phase 8 — moved before landing page so CTA can be live when landing ships.)
 
 ### Phase 9 — Full operator smoke + polish
 - [ ] End-to-end smoke: browse → search → cart → select delivery location (with fee shown) → type specific place → optional email → place order → admin email received → admin sees order → chat + receipt upload → status walk (all statuses) → customer tracking view reflects each status → mark delivered
@@ -234,3 +242,12 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - **Test orders (permanent):** EB73459826 (tamper1, GRA), EB59850108 (tamper2, GRA), EB26301317 (smoke-a, Bida Central).
 - Backend amended commit: d737512. Frontend amended commit: (this session). **Phase 3 COMPLETE.**
 - Phase 4 (catalog upgrades) is next.
+
+### 2026-07-29 — Phase 5A: Seller registration + admin vendor queue
+- Session recon: Phase 4 complete; docs showed Phase 5 (landing page) as next — PHASE ORDER SWAP applied: seller registration first (5A), landing becomes 5B so CTA can link to live form.
+- **Inventory:** Backend vendors table + all 3 endpoints already existed (POST /api/vendors, GET /api/admin/vendors, PUT /api/admin/vendors/:id/status). Frontend had ZERO vendor UI (no BecomeSellerView, no SellersView, no vendor dropdown, no nav item). Products table has vendor_id column but products.js did not expose it.
+- **Backend gaps filled (72a730b):** POST /api/vendor-images (public image upload for seller form); GET /api/admin/vendors?status= filter added; GET /api/admin/products (admin-only endpoint returning vendor_id); POST/PUT /api/admin/products now accept + persist vendor_id.
+- **Frontend (b92a3c7):** BecomeSellerView — name/phone (Nigerian format validation)/product_types/notes/optional photo via public vendor-images endpoint; inline validation errors (no alert()); confirmation screen. SellersView — applications newest first, status filter tabs, pending-count badge on Sellers nav tab, WhatsApp deep link (wa.me/ prefilled, phone normalized 0→+234). AdminView product form — Supplier/Vendor dropdown (approved vendors only, hidden when none), vendor_id persisted on product.
+- **Smoke (7/7 green):** (a) POST /api/vendors public ✓ with photo → admin queue shows image_id=8 → GET /api/images/8 → 200 ✓; (b) missing name/phone/product_types each → 400 with correct error ✓; (c) pending→contacted→approved status walk ✓, invalid status → 400 ✓; (d) ?status=approved returns only approved vendor, pending NOT included ✓; (e) PUT vendor_id=1 to product id=2 → persists in GET /api/admin/products ✓; (f) public /api/products has NO vendor_id field, 0 exposures in bundle shop rendering ✓; (g) POST /api/vendors 201 without token ✓, GET /api/admin/vendors 401 without token ✓.
+- **Test data created and cleaned up:** vendors id=1 (Smoke Seller Test) + id=2 (Smoke Photo Seller) both set to rejected; vendor_id cleared from Fresh Chicken (product id=2); image id=8 (tiny PNG) left in images table (orphaned, no harm).
+- Site loads 200 on https://everythingbida.com post-deploy. Phase 5B (landing page) is next.

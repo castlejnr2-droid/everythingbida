@@ -67,3 +67,12 @@ export const updateLocation = (id, body) => req('PUT', `/api/admin/locations/${i
 export const deleteLocation = (id) => req('DELETE', `/api/admin/locations/${id}`, null, true);
 
 export const putBank = (body) => req('PUT', '/api/admin/bank', body, true);
+
+// --- Vendor / Seller ---
+export const postVendorImage = (mime, data) => req('POST', '/api/vendor-images', { mime, data });
+export const postVendorApplication = (body) => req('POST', '/api/vendors', body);
+export const getAdminVendors = (status) => req('GET', `/api/admin/vendors${status ? `?status=${status}` : ''}`, null, true);
+export const putVendorStatus = (id, status) => req('PUT', `/api/admin/vendors/${id}/status`, { status }, true);
+
+// Admin products (includes vendor_id)
+export const getAdminProducts = () => req('GET', '/api/admin/products', null, true);
