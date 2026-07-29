@@ -20,6 +20,47 @@ const getCategoryEmoji = (name) => {
   return "🛍️";
 };
 
+// Smart polling hook: runs fetchFn immediately, then every intervalMs.
+// Pauses when tab is hidden; resumes (immediate fetch) when visible.
+// Backs off to 60 s after 3+ consecutive failures. Never overlaps requests.
+function useSmartPoll(fetchFn, intervalMs) {
+  const fnRef = useRef(fetchFn);
+  fnRef.current = fetchFn;
+
+  useEffect(() => {
+    let destroyed = false;
+    let inFlight = false;
+    let fails = 0;
+    let timer = null;
+
+    const doFetch = async () => {
+      if (inFlight || destroyed) return;
+      inFlight = true;
+      try { await fnRef.current(); fails = 0; }
+      catch { fails = Math.min(fails + 1, 99); }
+      finally { inFlight = false; }
+    };
+
+    const schedule = () => {
+      if (destroyed) return;
+      timer = setTimeout(async () => {
+        if (!document.hidden) await doFetch();
+        schedule();
+      }, fails >= 3 ? 60000 : intervalMs);
+    };
+
+    const onVisible = () => { if (!document.hidden) doFetch(); };
+
+    doFetch().then(schedule);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      destroyed = true;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [intervalMs]);
+}
+
 const linkifyText = (text) => {
   if (!text) return "";
   const re = /(https?:\/\/[^\s]+|(?:www\.|(?:vm\.)?tiktok\.com)[^\s]+)/gi;
@@ -186,16 +227,34 @@ const styles = `
   .how-step-label { font-size: 12px; color: #92400E; font-weight: 600; line-height: 1.3; }
   .how-arrow { font-size: 18px; color: #D97706; align-self: center; padding: 0 2px; flex-shrink: 0; }
   @media (max-width: 380px) { .hero { padding: 32px 16px 28px; } .hero-cta-primary, .hero-cta-secondary { width: 100%; } .hero-ctas { flex-direction: column; } }
+  .eta-msg { background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 11px 14px; color: #92400E; font-size: 13px; line-height: 1.5; margin: 10px 0; }
+  .eta-msg.eta-delivered { background: #D1FAE5; border-color: #6EE7B7; color: #065F46; }
+  .status-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .next-status-btn { padding: 8px 14px; border-radius: 8px; border: none; background: linear-gradient(135deg, #D97706, #B45309); color: white; font-weight: bold; font-size: 13px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+  .next-status-btn:hover { opacity: 0.88; }
+  .toggle-paid-btn { padding: 8px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; border: 2px solid #6EE7B7; background: #D1FAE5; color: #065F46; font-weight: 600; white-space: nowrap; }
+  .toggle-unpaid-btn { padding: 8px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; border: 2px solid #FCA5A5; background: #FEE2E2; color: #DC2626; font-weight: 600; white-space: nowrap; }
+  .status-select-sm { padding: 7px 10px; border-radius: 8px; border: 2px solid #FDE68A; font-size: 12px; background: white; color: #92400E; cursor: pointer; }
+  .track-chat-btn { display: inline-block; margin-top: 16px; padding: 11px 22px; border-radius: 10px; border: none; background: linear-gradient(135deg, #D97706, #B45309); color: white; font-weight: bold; font-size: 15px; cursor: pointer; text-align: center; width: 100%; }
+  .track-chat-btn:hover { opacity: 0.9; }
+  .status-badge-unpaid { background: #FEF3C7; color: #92400E; }
 `;
 
 
+
 export default function App() {
+  // Deep-link: ?order=EB######## navigates straight to track view
+  const [deepLinkOrderId] = useState(() => {
+    const p = new URLSearchParams(window.location.search).get('order');
+    return p ? p.trim().toUpperCase() : null;
+  });
+
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [locations, setLocations] = useState([]);
   const [bank, setBank] = useState({ name: '', acc_num: '', acc_name: '' });
   const [isAdmin, setIsAdmin] = useState(!!api.getToken());
-  const [currentView, setCurrentView] = useState("shop");
+  const [currentView, setCurrentView] = useState(deepLinkOrderId ? "track" : "shop");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -309,7 +368,7 @@ export default function App() {
       <main className="main">
         {currentView === "shop" && <ShopView products={products} addToCart={addToCart} setCurrentView={setCurrentView} categories={categories} />}
         {currentView === "cart" && <CartView cart={cart} updateQty={updateQty} removeFromCart={removeFromCart} placeOrder={placeOrder} bank={bank} locations={locations} />}
-        {currentView === "track" && <TrackOrderView />}
+        {currentView === "track" && <TrackOrderView initialOrderId={deepLinkOrderId} setCurrentView={setCurrentView} setSelectedOrder={setSelectedOrder} />}
         {currentView === "chat" && <ChatView isAdmin={isAdmin} selectedOrder={selectedOrder} setSelectedOrder={setSelectedOrder} />}
         {currentView === "become-seller" && <BecomeSellerView />}
         {currentView === "admin" && isAdmin && <AdminView products={products} setProducts={setProducts} categories={categories} setCategories={setCategories} approvedVendors={approvedVendors} />}
@@ -521,29 +580,64 @@ function ShopView({ products, addToCart, setCurrentView, categories }) {
   );
 }
 
-function TrackOrderView() {
-  const [trackId, setTrackId] = useState("");
+const DELIVERY_STEPS = ["pending","confirmed","preparing","out_for_delivery","delivered"];
+const PICKUP_STEPS   = ["pending","confirmed","preparing","ready_for_pickup","delivered"];
+
+const ETA_MESSAGES = {
+  pending:            "We've received your order and will confirm it shortly.",
+  confirmed:          "Your order is confirmed! We're getting it ready for you.",
+  preparing:          "Your order is being freshly prepared.",
+  out_for_delivery:   "Your order is on its way! Delivery to most locations in Bida typically takes 10–60 minutes.",
+  ready_for_pickup:   "Your order is ready for pickup at our store. Please come collect it at your earliest convenience.",
+  delivered:          "Your order has been delivered. Thank you for choosing EverythingBida!",
+};
+
+function TrackOrderView({ initialOrderId, setCurrentView, setSelectedOrder }) {
+  const [trackId, setTrackId] = useState(initialOrderId || "");
   const [foundOrder, setFoundOrder] = useState(null);
+  const [currentOrderId, setCurrentOrderId] = useState(null);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
-  const handleTrack = async () => {
-    const id = trackId.trim().toUpperCase();
-    if (!id) return;
+  const handleTrack = async (id) => {
+    const clean = (id !== undefined ? id : trackId).trim().toUpperCase();
+    if (!clean) return;
     setLoading(true);
     setSearched(true);
+    setNotFound(false);
     try {
-      const order = await api.getOrder(id);
+      const order = await api.getOrder(clean);
       setFoundOrder(order);
+      setCurrentOrderId(clean);
     } catch {
       setFoundOrder(null);
+      setCurrentOrderId(null);
+      setNotFound(true);
     } finally {
       setLoading(false);
     }
   };
 
-  const deliverySteps = ["pending","confirmed","preparing","out_for_delivery","delivered"];
-  const pickupSteps = ["pending","confirmed","preparing","ready_for_pickup","delivered"];
+  // Auto-load deep-link order on mount
+  useEffect(() => {
+    if (initialOrderId) handleTrack(initialOrderId);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll loaded order every 20 s (smart: visibility-aware, backoff on failures)
+  const pollOrder = useCallback(async () => {
+    if (!currentOrderId) return;
+    const order = await api.getOrder(currentOrderId);
+    setFoundOrder(order);
+  }, [currentOrderId]);
+
+  useSmartPoll(pollOrder, 20000);
+
+  const goToChat = () => {
+    if (!currentOrderId) return;
+    if (setSelectedOrder) setSelectedOrder(currentOrderId);
+    if (setCurrentView) setCurrentView("chat");
+  };
 
   return (
     <div className="track-section">
@@ -554,34 +648,46 @@ function TrackOrderView() {
           <input type="text" className="input" placeholder="e.g. EB12345678" value={trackId}
             onChange={e => setTrackId(e.target.value)} onKeyDown={e => e.key === "Enter" && handleTrack()}
             style={{ marginBottom: 0, flex: 1 }} />
-          <button className="btn" onClick={handleTrack} disabled={loading}>{loading ? "…" : "Track"}</button>
+          <button className="btn" onClick={() => handleTrack()} disabled={loading}>{loading ? "…" : "Track"}</button>
         </div>
       </div>
 
-      {searched && !loading && !foundOrder && (
+      {searched && !loading && notFound && (
         <div className="card text-center" style={{ padding: "30px" }}>
           <div style={{ fontSize: "50px", marginBottom: "10px" }}>❌</div>
           <h3 style={{ color: "#DC2626" }}>Order Not Found</h3>
-          <p style={{ color: "#92400E" }}>Please check your Order ID and try again.</p>
+          <p style={{ color: "#92400E" }}>Please check your Order ID and try again. Order IDs start with EB followed by 8 digits.</p>
         </div>
       )}
 
       {foundOrder && (() => {
-        const steps = foundOrder.method === 'pickup' ? pickupSteps : deliverySteps;
+        const steps = foundOrder.method === 'pickup' ? PICKUP_STEPS : DELIVERY_STEPS;
         const currentIdx = steps.indexOf(foundOrder.status);
+        const etaMsg = ETA_MESSAGES[foundOrder.status];
         return (
           <div className="card">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "20px" }}>
+            {/* Header: order ID + timestamps */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px", marginBottom: "16px" }}>
               <div>
-                <h3 style={{ color: "#78350F", fontFamily: "monospace" }}>{foundOrder.id}</h3>
-                <p style={{ color: "#92400E", fontSize: "12px" }}>{new Date(foundOrder.created_at).toLocaleString()}</p>
+                <h3 style={{ color: "#78350F", fontFamily: "monospace", fontSize: "18px" }}>{foundOrder.id}</h3>
+                <p style={{ color: "#92400E", fontSize: "12px", marginTop: "4px" }}>
+                  Placed: {new Date(foundOrder.created_at).toLocaleString()}
+                </p>
               </div>
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 <span className={`status-badge ${STATUS_CSS[foundOrder.status] || 'status-pending'}`}>{STATUS_LABELS[foundOrder.status] || foundOrder.status}</span>
-                {foundOrder.paid && <span className="status-badge status-paid">✓ Paid</span>}
+                <span className={`status-badge ${foundOrder.paid ? 'status-paid' : 'status-badge-unpaid'}`}>{foundOrder.paid ? "✓ Paid" : "Awaiting Payment"}</span>
               </div>
             </div>
 
+            {/* ETA message */}
+            {etaMsg && (
+              <div className={`eta-msg${foundOrder.status === 'delivered' ? ' eta-delivered' : ''}`}>
+                {foundOrder.status === 'delivered' ? '✅ ' : 'ℹ️ '}{etaMsg}
+              </div>
+            )}
+
+            {/* Status timeline */}
             <div className="track-timeline">
               {steps.map((step, idx) => {
                 const isCompleted = idx < currentIdx;
@@ -589,40 +695,58 @@ function TrackOrderView() {
                 return (
                   <div key={step} className={`track-step ${isCompleted ? "completed" : ""} ${isCurrent ? "current" : ""}`}>
                     <div style={{ fontWeight: isCurrent ? "bold" : "normal", color: isCompleted || isCurrent ? "#78350F" : "#B45309" }}>
-                      {STATUS_LABELS[step] || step} {isCurrent && "← Current"}
+                      {isCompleted && "✓ "}{STATUS_LABELS[step] || step}{isCurrent && " ← Now"}
                     </div>
                   </div>
                 );
               })}
             </div>
 
+            {/* Delivery / pickup info */}
             {foundOrder.method === 'delivery' && (foundOrder.location_name || foundOrder.specific_address) && (
               <div style={{ borderTop: "2px solid #FEF3C7", paddingTop: "12px", marginBottom: "12px" }}>
-                <p style={{ fontSize: "12px", fontWeight: "bold", color: "#92400E", marginBottom: "4px" }}>Delivery</p>
-                {foundOrder.location_name && <p style={{ color: "#78350F" }}>{foundOrder.location_name}</p>}
+                <p style={{ fontSize: "12px", fontWeight: "bold", color: "#92400E", marginBottom: "4px" }}>📍 Delivery to</p>
+                {foundOrder.location_name && <p style={{ color: "#78350F", fontWeight: 600 }}>{foundOrder.location_name}</p>}
                 {foundOrder.specific_address && <p style={{ color: "#92400E", fontSize: "13px" }}>{foundOrder.specific_address}</p>}
               </div>
             )}
+            {foundOrder.method === 'pickup' && (
+              <div style={{ borderTop: "2px solid #FEF3C7", paddingTop: "12px", marginBottom: "12px" }}>
+                <p style={{ fontSize: "12px", fontWeight: "bold", color: "#92400E" }}>🏪 Store Pickup</p>
+              </div>
+            )}
 
-            <div style={{ borderTop: "2px solid #FEF3C7", paddingTop: "15px", marginTop: "10px" }}>
+            {/* Items + totals */}
+            <div style={{ borderTop: "2px solid #FEF3C7", paddingTop: "15px", marginTop: "4px" }}>
               <h4 style={{ color: "#78350F", marginBottom: "10px" }}>Order Items</h4>
               {(foundOrder.items || []).map((item, idx) => (
-                <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", color: "#92400E" }}>
-                  <span>{item.qty}kg {item.name}</span>
+                <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", color: "#92400E" }}>
+                  <span>{item.qty}× {item.name}</span>
                   <span style={{ fontWeight: "bold" }}>{formatPrice(item.line_total || item.price * item.qty)}</span>
                 </div>
               ))}
-              {foundOrder.delivery_fee > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", color: "#92400E" }}>
-                  <span>Delivery fee</span>
-                  <span>{formatPrice(foundOrder.delivery_fee)}</span>
+              <div style={{ borderTop: "1px dashed #FDE68A", marginTop: "8px", paddingTop: "8px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: "#92400E" }}>
+                  <span>Subtotal</span>
+                  <span>{formatPrice(foundOrder.subtotal)}</span>
                 </div>
-              )}
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 0", borderTop: "1px solid #FDE68A", marginTop: "8px", fontWeight: "bold", color: "#78350F" }}>
-                <span>Total</span>
-                <span>{formatPrice(foundOrder.total)}</span>
+                {foundOrder.delivery_fee > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: "#92400E" }}>
+                    <span>Delivery fee{foundOrder.location_name ? ` (${foundOrder.location_name})` : ''}</span>
+                    <span>{formatPrice(foundOrder.delivery_fee)}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 0", borderTop: "2px solid #FDE68A", marginTop: "6px", fontWeight: "bold", color: "#78350F", fontSize: "17px" }}>
+                  <span>Total</span>
+                  <span>{formatPrice(foundOrder.total)}</span>
+                </div>
               </div>
             </div>
+
+            {/* Chat entry */}
+            {foundOrder.status !== 'delivered' && setCurrentView && (
+              <button className="track-chat-btn" onClick={goToChat}>💬 Chat with Us About This Order</button>
+            )}
           </div>
         );
       })()}
@@ -1272,26 +1396,30 @@ function LocationsView({ setLocations }) {
   );
 }
 
+// Sensible next-status per current status, taking order method into account.
+// Enforcement is UI-only (suggestive); any status can still be set via the dropdown.
+function getNextStatus(order) {
+  const { status, method } = order;
+  if (status === 'pending')    return 'confirmed';
+  if (status === 'confirmed')  return 'preparing';
+  if (status === 'preparing')  return method === 'pickup' ? 'ready_for_pickup' : 'out_for_delivery';
+  if (status === 'out_for_delivery') return 'delivered';
+  if (status === 'ready_for_pickup') return 'delivered';
+  return null; // delivered is terminal
+}
+
 function OrdersView({ setSelectedOrder, setCurrentView }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchOrders = useCallback(async () => {
-    try {
-      const data = await api.getAdminOrders();
-      setOrders(data);
-    } catch (err) {
-      console.error('Orders fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
+    const data = await api.getAdminOrders();
+    setOrders(data);
+    setLoading(false);
   }, []);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
-  useEffect(() => {
-    const t = setInterval(fetchOrders, 20000);
-    return () => clearInterval(t);
-  }, [fetchOrders]);
+  // Smart poll: 20 s, visibility-aware, 60 s backoff after 3 consecutive failures
+  useSmartPoll(fetchOrders, 20000);
 
   const handleStatusChange = async (orderId, status) => {
     try {
@@ -1300,10 +1428,10 @@ function OrdersView({ setSelectedOrder, setCurrentView }) {
     } catch (err) { alert('Error: ' + err.message); }
   };
 
-  const handleConfirmPayment = async (orderId) => {
+  const handleTogglePaid = async (orderId, currentPaid) => {
     try {
-      await api.putOrderPaid(orderId, true);
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paid: true } : o));
+      await api.putOrderPaid(orderId, !currentPaid);
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paid: !currentPaid } : o));
     } catch (err) { alert('Error: ' + err.message); }
   };
 
@@ -1331,48 +1459,62 @@ function OrdersView({ setSelectedOrder, setCurrentView }) {
   return (
     <>
       <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#78350F", marginBottom: "25px" }}>Order Management</h2>
-      {orders.map(order => (
-        <div key={order.id} className="card order-card">
-          <div className="order-header">
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                <span style={{ fontFamily: "monospace", fontWeight: "bold", color: "#78350F" }}>{order.id}</span>
-                <span className={`status-badge ${STATUS_CSS[order.status] || 'status-pending'}`}>{STATUS_LABELS[order.status] || order.status}</span>
-                {order.paid && <span className="status-badge status-paid">✓ Paid</span>}
+      {orders.map(order => {
+        const nextStatus = getNextStatus(order);
+        return (
+          <div key={order.id} className="card order-card">
+            <div className="order-header">
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: "monospace", fontWeight: "bold", color: "#78350F" }}>{order.id}</span>
+                  <span className={`status-badge ${STATUS_CSS[order.status] || 'status-pending'}`}>{STATUS_LABELS[order.status] || order.status}</span>
+                  <span className={`status-badge ${order.paid ? 'status-paid' : 'status-badge-unpaid'}`}>{order.paid ? "✓ Paid" : "Unpaid"}</span>
+                </div>
+                <p style={{ color: "#92400E", fontSize: "12px", marginTop: "5px" }}>{new Date(order.created_at).toLocaleString()}</p>
               </div>
-              <p style={{ color: "#92400E", fontSize: "12px", marginTop: "5px" }}>{new Date(order.created_at).toLocaleString()}</p>
+
+              {/* Status controls: suggested next + manual override + paid toggle + chat */}
+              <div className="status-controls">
+                {nextStatus && (
+                  <button className="next-status-btn" onClick={() => handleStatusChange(order.id, nextStatus)}>
+                    → {STATUS_LABELS[nextStatus]}
+                  </button>
+                )}
+                <select className="status-select-sm" value={order.status}
+                  onChange={e => handleStatusChange(order.id, e.target.value)}>
+                  {VALID_STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+                </select>
+                <button className={order.paid ? "toggle-unpaid-btn" : "toggle-paid-btn"}
+                  onClick={() => handleTogglePaid(order.id, order.paid)}>
+                  {order.paid ? "✕ Mark Unpaid" : "✓ Mark Paid"}
+                </button>
+                <button className="btn btn-outline" style={{ padding: "8px 12px", fontSize: "13px" }}
+                  onClick={() => { setSelectedOrder(order.id); setCurrentView("chat"); }}>💬 Chat</button>
+              </div>
             </div>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              <select onChange={e => handleStatusChange(order.id, e.target.value)} value={order.status}
-                style={{ padding: "8px 12px", borderRadius: "8px", border: "2px solid #FDE68A", fontSize: "13px" }}>
-                {VALID_STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-              </select>
-              {!order.paid && <button className="btn btn-green" style={{ padding: "8px 12px", fontSize: "13px" }} onClick={() => handleConfirmPayment(order.id)}>Confirm Payment</button>}
-              <button className="btn btn-outline" style={{ padding: "8px 12px", fontSize: "13px" }} onClick={() => { setSelectedOrder(order.id); setCurrentView("chat"); }}>💬 Chat</button>
+            <div className="order-grid">
+              <div>
+                <p style={{ fontSize: "12px", fontWeight: "bold", color: "#92400E", marginBottom: "5px" }}>Customer</p>
+                <p style={{ fontWeight: "bold", color: "#78350F" }}>{order.customer_name}</p>
+                <p style={{ color: "#92400E", fontSize: "13px" }}>{order.phone}</p>
+                {order.email && <p style={{ color: "#92400E", fontSize: "13px" }}>{order.email}</p>}
+              </div>
+              <div>
+                <p style={{ fontSize: "12px", fontWeight: "bold", color: "#92400E", marginBottom: "5px" }}>Delivery</p>
+                <p style={{ fontWeight: "bold", color: "#78350F" }}>{order.method === "pickup" ? "🏪 Store Pickup" : "🚚 Delivery"}</p>
+                {order.location_name && <p style={{ color: "#92400E", fontSize: "13px" }}>{order.location_name}</p>}
+                {order.specific_address && <p style={{ color: "#92400E", fontSize: "13px" }}>{order.specific_address}</p>}
+              </div>
+              <div>
+                <p style={{ fontSize: "12px", fontWeight: "bold", color: "#92400E", marginBottom: "5px" }}>Items</p>
+                {(order.items || []).map((item, idx) => <p key={idx} style={{ color: "#78350F", fontSize: "13px" }}>{item.qty}× {item.name}</p>)}
+                {order.delivery_fee > 0 && <p style={{ color: "#92400E", fontSize: "12px" }}>+ {formatPrice(order.delivery_fee)} delivery</p>}
+                <p style={{ fontWeight: "bold", color: "#78350F", marginTop: "8px" }}>Total: {formatPrice(order.total)}</p>
+              </div>
             </div>
           </div>
-          <div className="order-grid">
-            <div>
-              <p style={{ fontSize: "12px", fontWeight: "bold", color: "#92400E", marginBottom: "5px" }}>Customer</p>
-              <p style={{ fontWeight: "bold", color: "#78350F" }}>{order.customer_name}</p>
-              <p style={{ color: "#92400E", fontSize: "13px" }}>{order.phone}</p>
-              {order.email && <p style={{ color: "#92400E", fontSize: "13px" }}>{order.email}</p>}
-            </div>
-            <div>
-              <p style={{ fontSize: "12px", fontWeight: "bold", color: "#92400E", marginBottom: "5px" }}>Delivery</p>
-              <p style={{ fontWeight: "bold", color: "#78350F" }}>{order.method === "pickup" ? "🏪 Store Pickup" : "🚚 Delivery"}</p>
-              {order.location_name && <p style={{ color: "#92400E", fontSize: "13px" }}>{order.location_name}</p>}
-              {order.specific_address && <p style={{ color: "#92400E", fontSize: "13px" }}>{order.specific_address}</p>}
-            </div>
-            <div>
-              <p style={{ fontSize: "12px", fontWeight: "bold", color: "#92400E", marginBottom: "5px" }}>Items</p>
-              {(order.items || []).map((item, idx) => <p key={idx} style={{ color: "#78350F", fontSize: "13px" }}>{item.qty}kg {item.name}</p>)}
-              {order.delivery_fee > 0 && <p style={{ color: "#92400E", fontSize: "12px" }}>+ {formatPrice(order.delivery_fee)} delivery</p>}
-              <p style={{ fontWeight: "bold", color: "#78350F", marginTop: "8px" }}>Total: {formatPrice(order.total)}</p>
-            </div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </>
   );
 }
@@ -1411,14 +1553,14 @@ function ChatView({ isAdmin, selectedOrder, setSelectedOrder }) {
     if (selectedOrder && selectedOrder !== currentOrderId) loadChat(selectedOrder);
   }, [selectedOrder, currentOrderId, loadChat]);
 
-  // Poll for new messages every 15s
-  useEffect(() => {
+  // Poll for new messages every 15s (smart: visibility-aware, backoff on failures)
+  const pollMessages = useCallback(async () => {
     if (!currentOrderId) return;
-    const t = setInterval(() => {
-      api.getOrderMessages(currentOrderId).then(setMessages).catch(() => {});
-    }, 15000);
-    return () => clearInterval(t);
+    const msgs = await api.getOrderMessages(currentOrderId);
+    setMessages(msgs);
   }, [currentOrderId]);
+
+  useSmartPoll(pollMessages, 15000);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
