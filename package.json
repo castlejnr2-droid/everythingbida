@@ -12,13 +12,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@netlify/blobs": "^10.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.4",
-    "netlify-cli": "^24.0.1",
     "vite": "^7.3.1"
   }
 }

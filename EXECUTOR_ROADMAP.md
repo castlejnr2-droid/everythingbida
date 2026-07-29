@@ -8,9 +8,9 @@
 ---
 
 ## Current position
-**Phase 2D — Namecheap DNS cutover + Netlify retirement. Phase 2C complete: frontend rewired to Railway API, deployed to Vercel (https://everythingbida.vercel.app), custom domains attached (everythingbida.com → apex, www → 308 redirect to apex). DNS records documented below — operator to enter at Namecheap.**
+**Phase 3 — Delivery locations. Phase 2 COMPLETE.**
 
-**PLAN SYNC NOTE:** everythingbida.com (Namecheap) is the production domain, pointed at Vercel in 2C/2D; Netlify frozen as fallback, retired in 2D.
+Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
 
 ---
 
@@ -73,8 +73,8 @@
 - [x] CORS updated on Railway: FRONTEND_ORIGIN includes .vercel.app + everythingbida.com + www + localhost:5173
 - [x] Smoke (API layer, 2026-07-29): catalog 3 products ✓, images 200/image/jpeg ✓, empty locations handled ✓, pickup order EB70589725 placed ✓, tracking ✓, customer chat + receipt image_id=5 ✓, 401 without token ✓, bundle clean ✓
 - [ ] Admin login smoke: requires operator to verify with their admin password (plaintext not stored here)
-- [x] netlify/functions/api.mjs and @netlify/blobs LEFT IN PLACE — netlify.toml references functions dir (not deleting per spec)
-- [ ] Phase 2D: operator enters DNS at Namecheap (records below), verify site loads on everythingbida.com, retire Netlify
+- [x] netlify/functions/api.mjs + netlify/ dir + netlify.toml DELETED; @netlify/blobs + netlify-cli removed from package.json; npm install + build verified clean
+- [x] Phase 2D: DNS cutover confirmed (domain re-added to Vercel in external DNS mode; Namecheap A+CNAME records unchanged). TLS issued. www→apex 308 redirect via vercel.json. Final Netlify snapshot 20260729T114750Z — zero delta. **Phase 2 COMPLETE.**
 
 ### Phase 3 — Delivery locations
 - [ ] Backend: `locations` CRUD endpoints (admin-only for write: POST/PUT/DELETE; public GET)
@@ -184,6 +184,16 @@
   - www → 308 redirect to apex (Vercel-managed)
   - everythingbida.com is the primary domain (apex)
 - Next: Phase 2D — operator enters DNS at Namecheap, verify site loads on custom domain, retire Netlify.
+
+### 2026-07-29 — Phase 2D: DNS cutover + Netlify retirement (Phase 2 COMPLETE)
+- DNS: everythingbida.com re-added to Vercel in external DNS mode (was: nameserver delegation mode causing timeout). Namecheap A @ 216.198.79.1 + CNAME www → 215f4a2270340af2.vercel-dns-017.com. unchanged.
+- Vercel verify: `"status":"ok","reason":"configured_correctly","serviceType":"external"` for both apex and www. TLS issued by Let's Encrypt within seconds of re-add.
+- Delta migration: fetched all 5 Netlify Blobs endpoints at 20260729T114750Z. Zero new rows vs. 2B snapshot — no migration re-run needed.
+- www→apex redirect: vercel.json created with host-conditional 308 redirect.
+- Netlify code retired: netlify/ dir, netlify.toml deleted; @netlify/blobs + netlify-cli removed; npm install (1251 packages removed, 66 remain); build ✓ (250.57 kB JS / 74.92 kB gzip, 3.19s).
+- src/ grep: zero Netlify references in bundle source.
+- NOTE: bank_settings row is empty (bank API returns `{name:"",acc_num:"",acc_name:""}`). Operator must populate via admin panel.
+- Phase 3 (delivery locations) is next.
 
 ### 2026-07-29 — Phase 0 final: D1 interim password rotation
 - Replaced leaked password at App.jsx:191 with a new 16-char random value (letters + digits, no ambiguous chars).

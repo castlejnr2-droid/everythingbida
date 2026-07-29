@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "www.everythingbida.com" }],
+      "destination": "https://everythingbida.com/$1",
+      "permanent": true
+    }
+  ]
+}
