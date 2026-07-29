@@ -8,7 +8,9 @@
 ---
 
 ## Current position
-**Phase 2C — Frontend cutover + Vercel deploy + Netlify retirement. Phase 2B complete: migration executed (commit d20e575), all data live in Railway Postgres, no drift, all image hashes verified. Backend: https://everythingbida-backend-production.up.railway.app**
+**Phase 2D — Namecheap DNS cutover + Netlify retirement. Phase 2C complete: frontend rewired to Railway API, deployed to Vercel (https://everythingbida.vercel.app), custom domains attached (everythingbida.com → apex, www → 308 redirect to apex). DNS records documented below — operator to enter at Namecheap.**
+
+**PLAN SYNC NOTE:** everythingbida.com (Namecheap) is the production domain, pointed at Vercel in 2C/2D; Netlify frozen as fallback, retired in 2D.
 
 ---
 
@@ -56,14 +58,23 @@
   - DB after: categories=3 (Meats/Other/Uncategorized), products=3, orders=4 (+test EB25793599), messages=13 (+3 test), images=4
   - Skipped items: 0
   - Drift check at 20260729T082652Z: 0 new rows on all resources
-- [ ] Frontend: replace `cloudGet`/`cloudSet` with `VITE_API_URL`-based per-action fetch calls
-- [ ] Frontend: admin login calls `POST /api/admin/login`, stores session token in memory
-- [ ] All write endpoints include session token in Authorization header
-- [ ] No whole-array POSTs remain (D3 fixed)
-- [ ] Smoke test: place order, send chat message, upload receipt, admin flows, admin login/logout
-- [ ] Deploy frontend to Vercel; smoke runs on Vercel URL
-- [ ] Retire Netlify site and function entirely (remove `netlify/functions/api.mjs`, `netlify.toml`; delete Netlify site)
-- [ ] Push + verify Vercel build passes
+- [x] Frontend: replace `cloudGet`/`cloudSet` with `VITE_API_URL`-based per-action fetch calls (Phase 2C)
+- [x] Frontend: admin login calls `POST /api/admin/login`, stores JWT in sessionStorage, Bearer on admin calls, clear on 401 (Phase 2C)
+- [x] All write endpoints include session token in Authorization header; no whole-array POSTs (D2/D3 fixed, Phase 2C)
+- [x] Hardcoded client-side password comparison deleted (D1 closed, Phase 2C)
+- [x] Images served from `${VITE_API_URL}/api/images/${id}`; admin upload via POST /api/admin/images (D5 closed, Phase 2C)
+- [x] Order placement POSTs items as [{product_id, qty}]; displays server-returned subtotal/delivery_fee/total (Phase 2C)
+- [x] Chat messages read/post via order message routes; receipt upload via /api/orders/:id/receipt-image (Phase 2C)
+- [x] Deploy frontend to Vercel — https://everythingbida.vercel.app (project: gramketing/everythingbida, Phase 2C)
+  - VITE_API_URL=https://everythingbida-backend-production.up.railway.app set as production env var
+  - GitHub main branch auto-deploys to Vercel
+  - Custom domains attached: everythingbida.com (primary), www.everythingbida.com (308→apex)
+  - Bundle verified: no hardcoded password, Railway URL embedded, eb_admin_token/receipt-image present
+- [x] CORS updated on Railway: FRONTEND_ORIGIN includes .vercel.app + everythingbida.com + www + localhost:5173
+- [x] Smoke (API layer, 2026-07-29): catalog 3 products ✓, images 200/image/jpeg ✓, empty locations handled ✓, pickup order EB70589725 placed ✓, tracking ✓, customer chat + receipt image_id=5 ✓, 401 without token ✓, bundle clean ✓
+- [ ] Admin login smoke: requires operator to verify with their admin password (plaintext not stored here)
+- [x] netlify/functions/api.mjs and @netlify/blobs LEFT IN PLACE — netlify.toml references functions dir (not deleting per spec)
+- [ ] Phase 2D: operator enters DNS at Namecheap (records below), verify site loads on everythingbida.com, retire Netlify
 
 ### Phase 3 — Delivery locations
 - [ ] Backend: `locations` CRUD endpoints (admin-only for write: POST/PUT/DELETE; public GET)
@@ -155,6 +166,24 @@
 - All 8 tables confirmed in DB (categories, locations, images, vendors, products, orders, messages, bank_settings + schema_migrations)
 - **19337f6** — Phase 1B docs pre-amend hash; pushed as 79a80ae
 - Phase 1 fully complete. Next: Phase 2 — data migration + frontend cutover to Vercel.
+
+### 2026-07-29 — Phase 2C: frontend rewired + Vercel deploy + domains attached
+- Step 0: All 3 migrated orders (backup snapshots T021732Z + T082652Z) — zero payment-proof/proofBase64/receipt image fields. One message had image:null. No data-loss gap.
+- src/api.js created: thin wrappers for all backend routes, getToken/setToken/clearToken (sessionStorage), Bearer auto-attach, 401 auto-logout via 'eb:logout' event, imageUrl() helper.
+- App.jsx fully rewritten (data layer): cloudGet/cloudSet removed, hardcoded password deleted, JWT login, per-resource writes, delivery location dropdown, server-returned order totals, image upload via API, chat via API with 15s polling, admin orders with 20s polling, in_stock toggle, LocationsView added.
+- netlify/functions/api.mjs + @netlify/blobs LEFT IN PLACE (netlify.toml references functions dir).
+- Vercel project created: gramketing/everythingbida — https://everythingbida.vercel.app
+- VITE_API_URL set as Vercel production env var; GitHub main auto-deploys.
+- Custom domains attached via API: everythingbida.com (primary), www.everythingbida.com (308→apex).
+- CORS updated on Railway backend; redeployed; /health {ok:true,migrations:1} confirmed.
+- Bundle verified: railway.app URL embedded, no hardcoded passwords, receipt-image/eb_admin_token present.
+- Smoke API tests all green (see checklist above).
+- DNS records for Namecheap (operator to enter):
+  - **A record**: Host=`@`, Value=`76.76.21.21`
+  - **CNAME record**: Host=`www`, Value=`cname.vercel-dns.com.`
+  - www → 308 redirect to apex (Vercel-managed)
+  - everythingbida.com is the primary domain (apex)
+- Next: Phase 2D — operator enters DNS at Namecheap, verify site loads on custom domain, retire Netlify.
 
 ### 2026-07-29 — Phase 0 final: D1 interim password rotation
 - Replaced leaked password at App.jsx:191 with a new 16-char random value (letters + digits, no ambiguous chars).
