@@ -351,6 +351,9 @@ export default function App() {
       body.location_id = Number(customerInfo.locationId);
       body.specific_address = customerInfo.address;
     }
+    if (customerInfo.email && customerInfo.email.trim()) {
+      body.email = customerInfo.email.trim();
+    }
     const serverOrder = await api.postOrder(body);
     setSuccessOrder(serverOrder);
     setShowSuccessModal(true);
@@ -755,7 +758,7 @@ function TrackOrderView({ initialOrderId, setCurrentView, setSelectedOrder }) {
 }
 
 function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations }) {
-  const [customerInfo, setCustomerInfo] = useState({ name: "", phone: "", method: "pickup", address: "", locationId: "" });
+  const [customerInfo, setCustomerInfo] = useState({ name: "", phone: "", email: "", method: "pickup", address: "", locationId: "" });
   const [placing, setPlacing] = useState(false);
   const [locationSearch, setLocationSearch] = useState("");
   const [errors, setErrors] = useState({});
@@ -780,6 +783,9 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
     const newErrors = {};
     if (!customerInfo.name.trim()) newErrors.name = "Name is required";
     if (!customerInfo.phone.trim()) newErrors.phone = "Phone number is required";
+    if (customerInfo.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerInfo.email.trim())) {
+      newErrors.email = "Please enter a valid email address";
+    }
     if (customerInfo.method === "delivery") {
       if (!customerInfo.locationId) newErrors.location = "Please select a delivery area";
       if (!customerInfo.address.trim()) newErrors.address = "Please describe your specific location";
@@ -853,6 +859,13 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
         <input type="tel" className="input" placeholder="Phone Number" value={customerInfo.phone}
           onChange={e => { setCustomerInfo(prev => ({ ...prev, phone: e.target.value })); setErrors(prev => ({ ...prev, phone: undefined })); }} />
         {errors.phone && <span className="inline-error">{errors.phone}</span>}
+
+        <label style={{ display: "block", fontSize: "13px", color: "#92400E", marginBottom: "4px", marginTop: "6px" }}>
+          Email <span style={{ fontWeight: "normal", color: "#B45309" }}>(optional) &mdash; get your order details and tracking link</span>
+        </label>
+        <input type="email" className="input" placeholder="your@email.com" value={customerInfo.email}
+          onChange={e => { setCustomerInfo(prev => ({ ...prev, email: e.target.value })); setErrors(prev => ({ ...prev, email: undefined })); }} />
+        {errors.email && <span className="inline-error">{errors.email}</span>}
 
         <h4 style={{ color: "#78350F", marginBottom: "12px", marginTop: "10px" }}>Delivery Method</h4>
         <div className="delivery-options">
@@ -1490,6 +1503,13 @@ function OrdersView({ setSelectedOrder, setCurrentView }) {
                 </button>
                 <button className="btn btn-outline" style={{ padding: "8px 12px", fontSize: "13px" }}
                   onClick={() => { setSelectedOrder(order.id); setCurrentView("chat"); }}>💬 Chat</button>
+                <a
+                  href={`https://wa.me/${normalizePhoneForWhatsApp(order.phone)}?text=${encodeURIComponent(`Hi ${order.customer_name}, I'm reaching out about your EverythingBida order ${order.id}. How can I help you?`)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="btn btn-outline"
+                  style={{ padding: "8px 12px", fontSize: "13px", textDecoration: "none", display: "inline-block" }}>
+                  📱 WhatsApp Customer
+                </a>
               </div>
             </div>
             <div className="order-grid">
