@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 7 — Notifications. Phase 6 (tracking + polling) COMPLETE.**
+**Phase 9 — Full operator smoke + polish. Phase 7 (notifications) COMPLETE.**
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
 
@@ -139,13 +139,19 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [x] useSmartPoll hook: chat 15s, admin orders 20s, tracking 20s; visibility-aware (pauses on hidden, immediate fetch on resume); 60s backoff after 3+ consecutive failures; no overlapping requests; cleans up on unmount
 - Frontend commit: 5c1651a | Backend commit: 6d99166
 
-### Phase 7 — Notifications
-- [ ] Backend: install Resend SDK; configure `RESEND_API_KEY` + `ADMIN_EMAIL` env vars on Railway
-- [ ] Backend: on `POST /orders`, fire-and-forget send admin notification email (order ID, customer, items, total, tracking link); log error but never fail the order
-- [ ] Backend: on `POST /orders`, if `email` provided, send customer confirmation email (order ID, tracking link, items, total); fire-and-forget
-- [ ] Frontend checkout: optional email field, clearly labelled optional
-- [ ] Frontend admin order card: WhatsApp deep-link button (admin-side only) — opens `wa.me/ADMIN_WHATSAPP_NUMBER?text=...` with order summary
-- [ ] Verify: order with no email → only admin email sent; order with email → both sent; email service down → order still succeeds
+### Phase 7 — Notifications ✅ COMPLETE (2026-07-30)
+- [x] Backend: `resend` package installed (^6.18.1); RESEND_API_KEY + ADMIN_EMAIL + ADMIN_WHATSAPP_NUMBER synced to Railway service
+- [x] Backend: `src/email.js` — fireAdminOrderAlert + fireCustomerConfirmation helpers; fire-and-forget via .catch(); errors logged with order ID + message only (no key, no PII); bank_settings fetched async for customer email (degrades gracefully if empty); no retry loop — 7046362
+- [x] Backend: routes/orders.js — both helpers called post-INSERT, never awaited — 7046362
+- [x] Frontend checkout: optional email field after phone, labelled "(optional) — get your order details and tracking link"; validated only if non-empty; inline error for malformed address — fed93dd
+- [x] Frontend admin OrdersView: WhatsApp deep link per order card — `wa.me/CUSTOMER_PHONE?text=...` with order ID + greeting; normalizePhoneForWhatsApp (0→234, strip spaces/dashes/+) reused; admin-only (inside isAdmin-gated view) — fed93dd
+- [x] Verified: order without email → 201, email field null, admin alert fires, no customer email attempted (PASS)
+- [x] Verified: order with email → 201, both emails fire, tracking link https://everythingbida.com/?order=EB89736955 resolves correct order (PASS)
+- [x] BREAK-GLASS: invalid RESEND_API_KEY on Railway → orders EB82010078 + EB05706696 both returned 201; email failure caught async (never blocks order); key restored, /health {ok:true,migrations:1} (PASS)
+- [x] Malformed email at checkout → frontend inline error + backend 400 "Invalid email format" (PASS)
+- [x] WhatsApp normalisation verified: 0→234, +→strip, spaces+dashes removed; link targets customer phone (PASS)
+- [x] Regression: /health ✓, /api/products ✓, /api/bank ✓, /api/categories ✓, https://everythingbida.com → 200 ✓
+- Frontend commit: fed93dd | Backend commit: 7046362
 
 ### Phase 8 — Seller registration ✅ MOVED to Phase 5A (COMPLETE 2026-07-29)
 (Originally Phase 8 — moved before landing page so CTA can be live when landing ships.)
