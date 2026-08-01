@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 9 — Full operator smoke + polish. Phase 7 (notifications) COMPLETE.**
+**Phase 9 — Full operator smoke + polish. Phase 8 (shop layout + discovery + purge) COMPLETE.**
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
 
@@ -156,6 +156,14 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 ### Phase 8 — Seller registration ✅ MOVED to Phase 5A (COMPLETE 2026-07-29)
 (Originally Phase 8 — moved before landing page so CTA can be live when landing ships.)
 
+### Phase 8 (new) — Shop layout rework + discovery rails + em dashes + bank labels ✅ COMPLETE (2026-08-01)
+- [x] Test-data purge: 16 test orders + 23 messages + 45 orphaned images + 9 rejected vendor apps deleted via scripts/purge_phase8.mjs. 3 real migrated orders preserved (EB04850822/EB17418604/EB18711266). Images before=48 → after=3. Vendors before=9 → after=0.
+- [x] Shop layout rework: hero/value-props/how-it-works moved below catalog grid. Top of page is now product-first. "Become a Seller" in sticky nav (nav-btn "Sell With Us") on every view.
+- [x] Discovery rails: DiscoveryRails + ProductRail components. "Just Added" = in-stock products newest first, up to 8, horizontal scroll+snap. "Most Ordered" = GET /api/products/most-ordered (60 s in-process cache, stale-on-error). Threshold: show if ≥1 product returned; hide entirely if []. Post-purge: 3 products returned (Premium Turkey 4, Fresh Chicken 3, Quality Beef 2) — rail SHOWS.
+- [x] Em dash removal: 5 in App.jsx (hero tagline, email label, chat header, seller form ×2), 3 in email.js (admin subject ×2, customer body ×1). Bundle grep: 0 occurrences.
+- [x] Bank labels: CartView + SuccessModal now show "Bank Name / Account Number / Account Name" labels. Email already had correct labels. DB field mapping confirmed correct.
+- Frontend: bd3d28f | Backend: 98bcee5
+
 ### Phase 9 — Full operator smoke + polish
 - [ ] End-to-end smoke: browse → search → cart → select delivery location (with fee shown) → type specific place → optional email → place order → admin email received → admin sees order → chat + receipt upload → status walk (all statuses) → customer tracking view reflects each status → mark delivered
 - [ ] Pickup flow smoke: cart → pickup → no location/address fields → place order → admin marks ready_for_pickup → tracking reflects
@@ -292,3 +300,45 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - **Bundle delta:** 276.27 kB → 280.50 kB (+4.23 kB raw / +4.35 kB gzip increase — includes useSmartPoll hook + full TrackOrderView rewrite + admin controls). Site loads 200 on https://everythingbida.com post-deploy.
 
 - Phase 7 (notifications) is next.
+
+### 2026-08-01 — Phase 8: shop layout rework, discovery rails, em dash removal, bank labels, DB purge
+
+**Session recon:** Phase 7 complete (fed93dd / 7046362). Phase 9 (operator smoke) was next per old roadmap. Operator injected Phase 8 as new named phase before Phase 9. Docs confirmed; Phase 8 began.
+
+**Security incident:** During DB recon, DATABASE_URL was interpolated into a visible shell command, exposing the Postgres password. Operator rotated the Railway Postgres credential. Feedback saved to memory: all DB access must go through `railway run node <script>` — secrets injected by Railway into process env, never printed. Subsequent DB operations in this session used railway run correctly.
+
+**Step 1 — DB purge (scripts/purge_phase8.mjs via railway run):**
+- Before: Orders=19, Messages=33, Images=48, Vendors=9
+- 3 unknown orders found and confirmed with operator: EB99941973, EB34623390 (Phase 3 tamper tests), EB37306329 (operator site check) — all added to delete list. Total delete list: 16 orders.
+- All 3 preserved orders confirmed intact before deletion (EB04850822/EB17418604/EB18711266).
+- Deleted: 16 orders, 23 messages, 44 orphaned images in first pass. Vendor deletion revealed image id=8 (Phase 5A vendor photo) as second orphan; second cleanup script removed it.
+- Deleted: 9 vendor applications (ids 1–9, all status=rejected, all Phase 5A/5B smoke tests).
+- After: Orders=3, Messages=10, Images=3, Vendors=0. All 3 preserved orders verified intact.
+
+**Step 2 — Shop layout rework:**
+- hero + value-props + how-it-works block moved from TOP to BOTTOM of ShopView, wrapped in `.shop-landing` div with `margin-top: 48px`.
+- Top of page is now product-first: rails → search + pills → catalog grid → landing block.
+- "Become a Seller" already in sticky nav (non-admin nav shows "🏬 Sell With Us") — no change needed.
+
+**Step 3 — Discovery rails:**
+- `ProductRail` component: horizontal scroll container (`.rail-scroll`), `scroll-snap-type: x mandatory`, `-webkit-overflow-scrolling: touch`. Rail cards fixed 220px (170px on ≤480px). Description clamped to 2 lines.
+- `DiscoveryRails` component: "Just Added" from existing products array (in_stock, sort by created_at desc, take 8). "Most Ordered" fetched from new endpoint.
+- Backend: `GET /api/products/most-ordered` added to products.js. Aggregates `orders.items` jsonb with `jsonb_array_elements`, joins products (in_stock=true), groups by product_id, returns top 8 sorted by total ordered DESC. In-process cache: 60 s TTL, serve stale on DB error, return [] on cold failure.
+- **Threshold:** rail shown if endpoint returns ≥1 product. Hidden entirely if [].
+- **Post-purge result:** 3 real orders drove real data. Endpoint returns [Premium Turkey (4 ordered), Fresh Chicken (3), Quality Beef (2)] — "Most Ordered" rail SHOWS.
+- api.js: added `getMostOrdered()` → `/api/products/most-ordered`.
+
+**Step 4 — Em dash removal:**
+- App.jsx (5 user-facing): hero tagline `—` → `.`; email label `&mdash;` → `:`; chat header ` — ` → `, `; seller form copy `—` × 2 → `,` and `:`.
+- email.js (3 user-facing): admin subject `\u2014` × 2 → `-`; customer body `&mdash;` → `.`.
+- Bundle grep: 0 occurrences of `—`, `\u2014`, `&mdash;` in deployed JS.
+
+**Step 5 — Bank display check:**
+- CartView payment box: was unlabelled bare values. Added grid layout with "Bank Name / Account Number / Account Name" labels.
+- SuccessModal bank box: same fix — labelled grid.
+- Email already had correct labels ("Bank", "Account number", "Account name") mapping correctly to `bank.name`, `bank.acc_num`, `bank.acc_name`.
+- Admin BankView had correct labels. No DB mismatch — the operator's correction of swapped values was in the admin panel data, not code.
+
+**Commits:** Frontend bd3d28f (285.06 kB / 82.76 kB gzip) pushed → Vercel auto-deploy. Backend 98bcee5 deployed via railway up. /health {ok:true,migrations:1}. Site 200.
+
+**Phase 9 (full operator smoke + mobile/contrast polish) is next.**
