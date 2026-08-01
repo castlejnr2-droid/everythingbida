@@ -33,6 +33,7 @@ async function req(method, path, body, useAuth = false) {
 
 // --- Public ---
 export const getProducts = () => req('GET', '/api/products');
+export const getMostOrdered = () => req('GET', '/api/products/most-ordered');
 export const getCategories = () => req('GET', '/api/categories');
 export const getLocations = () => req('GET', '/api/locations');
 export const getBank = () => req('GET', '/api/bank');

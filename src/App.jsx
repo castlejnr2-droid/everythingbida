@@ -238,6 +238,18 @@ const styles = `
   .track-chat-btn { display: inline-block; margin-top: 16px; padding: 11px 22px; border-radius: 10px; border: none; background: linear-gradient(135deg, #D97706, #B45309); color: white; font-weight: bold; font-size: 15px; cursor: pointer; text-align: center; width: 100%; }
   .track-chat-btn:hover { opacity: 0.9; }
   .status-badge-unpaid { background: #FEF3C7; color: #92400E; }
+  /* --- Discovery Rails --- */
+  .discovery-rails { margin-bottom: 32px; }
+  .product-rail { margin-bottom: 20px; }
+  .rail-title { color: #78350F; font-size: 17px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .rail-scroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+  .rail-scroll::-webkit-scrollbar { height: 4px; }
+  .rail-scroll::-webkit-scrollbar-thumb { background: #FDE68A; border-radius: 2px; }
+  .rail-card { flex: 0 0 220px; scroll-snap-align: start; min-width: 0; }
+  .rail-card .product-info p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  @media (max-width: 480px) { .rail-card { flex: 0 0 170px; } }
+  /* --- Shop landing block (moved to bottom) --- */
+  .shop-landing { margin-top: 48px; }
 `;
 
 
@@ -462,6 +474,75 @@ function StockBadge({ inStock }) {
   return <span className="stock-badge stock-ok">In Stock</span>;
 }
 
+// --- Discovery rail: single horizontal scroll strip of product cards ---
+function ProductRail({ title, icon, products, addToCart }) {
+  if (products.length === 0) return null;
+  return (
+    <div className="product-rail">
+      <div className="rail-title">{icon} {title}</div>
+      <div className="rail-scroll">
+        {products.map(product => {
+          const outOfStock = !product.in_stock;
+          const imgSrc = product.image_id ? api.imageUrl(product.image_id) : null;
+          return (
+            <div key={product.id} className="card product-card rail-card">
+              <div className={`product-img ${!imgSrc ? "no-image" : ""}`} style={imgSrc ? { backgroundImage: `url(${imgSrc})` } : {}}>
+                {!imgSrc && <span>{getCategoryEmoji(product.category_name)}</span>}
+                <span className="product-tag" style={{ background: getCategoryColor(product.category_name) }}>{product.category_name || 'Other'}</span>
+                {outOfStock && <div className="out-of-stock-overlay"><span className="out-of-stock-text">OUT OF STOCK</span></div>}
+              </div>
+              <div className="product-info">
+                <h3>{product.name}</h3>
+                <p>{product.description}</p>
+                <div className="product-footer" style={{ marginTop: "10px" }}>
+                  <div className="product-price">{formatPrice(product.price)}/kg</div>
+                  <button className="btn" style={{ padding: "10px 16px", fontSize: "14px" }} disabled={outOfStock} onClick={() => addToCart(product)}>
+                    {outOfStock ? "Sold Out" : "Add"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// --- Discovery Rails: "Just Added" + "Most Ordered" at top of shop ---
+// Threshold for "Most Ordered": show only if API returns ≥1 in-stock product.
+// Rail hides itself entirely when empty (no placeholder content).
+function DiscoveryRails({ products, addToCart }) {
+  const [mostOrdered, setMostOrdered] = useState([]);
+  const [moLoaded, setMoLoaded] = useState(false);
+
+  useEffect(() => {
+    api.getMostOrdered()
+      .then(data => { setMostOrdered(data); setMoLoaded(true); })
+      .catch(() => setMoLoaded(true));
+  }, []);
+
+  // "Just Added": in-stock products sorted newest first, up to 8
+  const justAdded = [...products]
+    .filter(p => p.in_stock)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 8);
+
+  const hasMostOrdered = moLoaded && mostOrdered.length > 0;
+  if (justAdded.length === 0 && !hasMostOrdered) return null;
+
+  return (
+    <div className="discovery-rails">
+      {justAdded.length > 0 && (
+        <ProductRail title="Just Added" icon="✨" products={justAdded} addToCart={addToCart} />
+      )}
+      {hasMostOrdered && (
+        <ProductRail title="Most Ordered" icon="🔥" products={mostOrdered} addToCart={addToCart} />
+      )}
+    </div>
+  );
+}
+
 function ShopView({ products, addToCart, setCurrentView, categories }) {
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -484,101 +565,104 @@ function ShopView({ products, addToCart, setCurrentView, categories }) {
 
   return (
     <>
-      {/* --- Hero / Landing --- */}
-      <div className="hero">
-        <div className="hero-title">EverythingBida</div>
-        <div className="hero-tagline">Hyperlocal same-day delivery in Bida.<br />Order now — at your door in minutes.</div>
-        <div className="hero-ctas">
-          <button className="hero-cta-primary" onClick={scrollToCatalog}>🛒 Shop Now</button>
-          <button className="hero-cta-secondary" onClick={() => setCurrentView("become-seller")}>🏬 Become a Seller</button>
-        </div>
-      </div>
+      {/* --- Discovery Rails (top of page: Just Added + Most Ordered) --- */}
+      <DiscoveryRails products={products} addToCart={addToCart} />
 
-      {/* --- Value Props --- */}
-      <div className="value-props">
-        <div className="value-prop">
-          <div className="value-prop-icon">⚡</div>
-          <h4>Instant Availability</h4>
-          <p>Only products in stock and ready in Bida today are listed. What you see is what you can get right now.</p>
-        </div>
-        <div className="value-prop">
-          <div className="value-prop-icon">🚀</div>
-          <h4>Delivery in Minutes</h4>
-          <p>Order now, receive within 10–60 minutes at your doorstep.</p>
-        </div>
-        <div className="value-prop">
-          <div className="value-prop-icon">🛍️</div>
-          <h4>Effortless Selling</h4>
-          <p>Vendors list products in seconds and reach customers across Bida instantly. Our team verifies and approves quickly.</p>
-        </div>
-        <div className="value-prop">
-          <div className="value-prop-icon">🏎️</div>
-          <h4>Built for Speed</h4>
-          <p>We solve the biggest frustration with online shopping: slow delivery.</p>
-        </div>
-      </div>
-
-      {/* --- How It Works --- */}
-      <div className="how-it-works">
-        <h3>How it works</h3>
-        <div className="how-steps">
-          <div className="how-step"><span className="how-step-icon">🔍</span><span className="how-step-label">Browse</span></div>
-          <div className="how-arrow">›</div>
-          <div className="how-step"><span className="how-step-icon">🛒</span><span className="how-step-label">Order</span></div>
-          <div className="how-arrow">›</div>
-          <div className="how-step"><span className="how-step-icon">💳</span><span className="how-step-label">Pay by transfer</span></div>
-          <div className="how-arrow">›</div>
-          <div className="how-step"><span className="how-step-icon">🚚</span><span className="how-step-label">Delivered in 10–60 min</span></div>
-        </div>
-      </div>
-
-      {/* --- Catalog anchor --- */}
+      {/* --- Catalog anchor: search + category pills + grid --- */}
       <div ref={catalogRef}>
-      <div className="search-bar">
-        <input type="text" className="input" placeholder="🔍 Search products..." value={searchText} onChange={e => setSearchText(e.target.value)} />
-        {searchText && (
-          <button className="btn btn-outline" style={{ padding: "12px 14px", whiteSpace: "nowrap" }} onClick={() => setSearchText("")}>✕ Clear</button>
-        )}
-        <button className="btn btn-outline" style={{ padding: "12px 20px", whiteSpace: "nowrap" }} onClick={() => setCurrentView("track")}>📦 Track Order</button>
-      </div>
-      <div className="category-filters">
-        {["All", ...visibleCategories.map(c => c.name)].map(cat => (
-          <button key={cat} className={`cat-btn ${selectedCategory === cat ? "active" : ""}`} onClick={() => setSelectedCategory(cat)}>{cat}</button>
-        ))}
-      </div>
-      {filtered.length === 0 ? (
-        <div className="card text-center" style={{ padding: "50px" }}>
-          <div style={{ fontSize: "60px", marginBottom: "15px" }}>🔍</div>
-          <h3 style={{ color: "#78350F" }}>No Products Found</h3>
-          <p style={{ color: "#92400E" }}>Try a different search or category.</p>
+        <div className="search-bar">
+          <input type="text" className="input" placeholder="🔍 Search products..." value={searchText} onChange={e => setSearchText(e.target.value)} />
+          {searchText && (
+            <button className="btn btn-outline" style={{ padding: "12px 14px", whiteSpace: "nowrap" }} onClick={() => setSearchText("")}>✕ Clear</button>
+          )}
+          <button className="btn btn-outline" style={{ padding: "12px 20px", whiteSpace: "nowrap" }} onClick={() => setCurrentView("track")}>📦 Track Order</button>
         </div>
-      ) : (
-        <div className="products-grid">
-          {filtered.map(product => {
-            const outOfStock = !product.in_stock;
-            const imgSrc = product.image_id ? api.imageUrl(product.image_id) : null;
-            return (
-              <div key={product.id} className="card product-card">
-                <div className={`product-img ${!imgSrc ? "no-image" : ""}`} style={imgSrc ? { backgroundImage: `url(${imgSrc})` } : {}}>
-                  {!imgSrc && <span>{getCategoryEmoji(product.category_name)}</span>}
-                  <span className="product-tag" style={{ background: getCategoryColor(product.category_name) }}>{product.category_name || 'Other'}</span>
-                  {outOfStock && <div className="out-of-stock-overlay"><span className="out-of-stock-text">OUT OF STOCK</span></div>}
-                </div>
-                <div className="product-info">
-                  <h3>{product.name}</h3>
-                  <p>{linkifyText(product.description)}</p>
-                  <StockBadge inStock={product.in_stock} />
-                  <div className="product-footer" style={{ marginTop: "10px" }}>
-                    <div className="product-price">{formatPrice(product.price)}/kg</div>
-                    <button className="btn" disabled={outOfStock} onClick={() => addToCart(product)}>{outOfStock ? "Sold Out" : "Add to Cart"}</button>
+        <div className="category-filters">
+          {["All", ...visibleCategories.map(c => c.name)].map(cat => (
+            <button key={cat} className={`cat-btn ${selectedCategory === cat ? "active" : ""}`} onClick={() => setSelectedCategory(cat)}>{cat}</button>
+          ))}
+        </div>
+        {filtered.length === 0 ? (
+          <div className="card text-center" style={{ padding: "50px" }}>
+            <div style={{ fontSize: "60px", marginBottom: "15px" }}>🔍</div>
+            <h3 style={{ color: "#78350F" }}>No Products Found</h3>
+            <p style={{ color: "#92400E" }}>Try a different search or category.</p>
+          </div>
+        ) : (
+          <div className="products-grid">
+            {filtered.map(product => {
+              const outOfStock = !product.in_stock;
+              const imgSrc = product.image_id ? api.imageUrl(product.image_id) : null;
+              return (
+                <div key={product.id} className="card product-card">
+                  <div className={`product-img ${!imgSrc ? "no-image" : ""}`} style={imgSrc ? { backgroundImage: `url(${imgSrc})` } : {}}>
+                    {!imgSrc && <span>{getCategoryEmoji(product.category_name)}</span>}
+                    <span className="product-tag" style={{ background: getCategoryColor(product.category_name) }}>{product.category_name || 'Other'}</span>
+                    {outOfStock && <div className="out-of-stock-overlay"><span className="out-of-stock-text">OUT OF STOCK</span></div>}
+                  </div>
+                  <div className="product-info">
+                    <h3>{product.name}</h3>
+                    <p>{linkifyText(product.description)}</p>
+                    <StockBadge inStock={product.in_stock} />
+                    <div className="product-footer" style={{ marginTop: "10px" }}>
+                      <div className="product-price">{formatPrice(product.price)}/kg</div>
+                      <button className="btn" disabled={outOfStock} onClick={() => addToCart(product)}>{outOfStock ? "Sold Out" : "Add to Cart"}</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
       </div>{/* /catalogRef */}
+
+      {/* --- Hero / Value Props / How It Works (moved below catalog) --- */}
+      <div className="shop-landing">
+        <div className="hero">
+          <div className="hero-title">EverythingBida</div>
+          <div className="hero-tagline">Hyperlocal same-day delivery in Bida.<br />Order now. At your door in minutes.</div>
+          <div className="hero-ctas">
+            <button className="hero-cta-primary" onClick={scrollToCatalog}>🛒 Shop Now</button>
+            <button className="hero-cta-secondary" onClick={() => setCurrentView("become-seller")}>🏬 Become a Seller</button>
+          </div>
+        </div>
+
+        <div className="value-props">
+          <div className="value-prop">
+            <div className="value-prop-icon">⚡</div>
+            <h4>Instant Availability</h4>
+            <p>Only products in stock and ready in Bida today are listed. What you see is what you can get right now.</p>
+          </div>
+          <div className="value-prop">
+            <div className="value-prop-icon">🚀</div>
+            <h4>Delivery in Minutes</h4>
+            <p>Order now, receive within 10–60 minutes at your doorstep.</p>
+          </div>
+          <div className="value-prop">
+            <div className="value-prop-icon">🛍️</div>
+            <h4>Effortless Selling</h4>
+            <p>Vendors list products in seconds and reach customers across Bida instantly. Our team verifies and approves quickly.</p>
+          </div>
+          <div className="value-prop">
+            <div className="value-prop-icon">🏎️</div>
+            <h4>Built for Speed</h4>
+            <p>We solve the biggest frustration with online shopping: slow delivery.</p>
+          </div>
+        </div>
+
+        <div className="how-it-works">
+          <h3>How it works</h3>
+          <div className="how-steps">
+            <div className="how-step"><span className="how-step-icon">🔍</span><span className="how-step-label">Browse</span></div>
+            <div className="how-arrow">›</div>
+            <div className="how-step"><span className="how-step-icon">🛒</span><span className="how-step-label">Order</span></div>
+            <div className="how-arrow">›</div>
+            <div className="how-step"><span className="how-step-icon">💳</span><span className="how-step-label">Pay by transfer</span></div>
+            <div className="how-arrow">›</div>
+            <div className="how-step"><span className="how-step-icon">🚚</span><span className="how-step-label">Delivered in 10–60 min</span></div>
+          </div>
+        </div>
+      </div>{/* /shop-landing */}
     </>
   );
 }
@@ -861,7 +945,7 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
         {errors.phone && <span className="inline-error">{errors.phone}</span>}
 
         <label style={{ display: "block", fontSize: "13px", color: "#92400E", marginBottom: "4px", marginTop: "6px" }}>
-          Email <span style={{ fontWeight: "normal", color: "#B45309" }}>(optional) &mdash; get your order details and tracking link</span>
+          Email <span style={{ fontWeight: "normal", color: "#B45309" }}>(optional): get your order details and tracking link</span>
         </label>
         <input type="email" className="input" placeholder="your@email.com" value={customerInfo.email}
           onChange={e => { setCustomerInfo(prev => ({ ...prev, email: e.target.value })); setErrors(prev => ({ ...prev, email: undefined })); }} />
@@ -922,10 +1006,15 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
         )}
 
         <div className="payment-box">
-          <p style={{ fontWeight: "bold", color: "#92400E", marginBottom: "8px" }}>💳 Payment Details:</p>
-          <p style={{ color: "#78350F", fontWeight: "bold" }}>{bank.name}</p>
-          <p style={{ color: "#92400E" }}>{bank.acc_num}</p>
-          <p style={{ color: "#92400E" }}>{bank.acc_name}</p>
+          <p style={{ fontWeight: "bold", color: "#92400E", marginBottom: "10px" }}>💳 Payment Details</p>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "5px 14px", alignItems: "baseline" }}>
+            <span style={{ color: "#B45309", fontSize: "12px", fontWeight: 600 }}>Bank Name</span>
+            <span style={{ color: "#78350F", fontWeight: "bold" }}>{bank.name}</span>
+            <span style={{ color: "#B45309", fontSize: "12px", fontWeight: 600 }}>Account Number</span>
+            <span style={{ color: "#92400E" }}>{bank.acc_num}</span>
+            <span style={{ color: "#B45309", fontSize: "12px", fontWeight: 600 }}>Account Name</span>
+            <span style={{ color: "#92400E" }}>{bank.acc_name}</span>
+          </div>
         </div>
         {orderError && (
           <div style={{ background: "#FEE2E2", border: "2px solid #FCA5A5", borderRadius: "10px", padding: "14px", marginBottom: "14px", color: "#DC2626", fontWeight: "600" }}>
@@ -1663,7 +1752,7 @@ function ChatView({ isAdmin, selectedOrder, setSelectedOrder }) {
                   if (!od || od.method !== 'delivery' || !od.location_name) return null;
                   return (
                     <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "12px", marginTop: "4px" }}>
-                      📍 {od.location_name}{od.specific_address ? ` — ${od.specific_address}` : ''}
+                      📍 {od.location_name}{od.specific_address ? `, ${od.specific_address}` : ''}
                     </p>
                   );
                 })()}
@@ -1848,7 +1937,7 @@ function BecomeSellerView() {
     <div style={{ maxWidth: "520px", margin: "0 auto" }}>
       <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#78350F", marginBottom: "8px" }}>🏬 Become a Seller</h2>
       <p style={{ color: "#92400E", marginBottom: "24px", lineHeight: 1.6 }}>
-        List your products in seconds and reach customers across Bida instantly. Our team verifies product quality before approving — so customers trust every listing.
+        List your products in seconds and reach customers across Bida instantly. Our team verifies product quality before approving, so customers trust every listing.
       </p>
       <div className="card">
         <input type="text" className="input" placeholder="Business or seller name *"
@@ -1881,7 +1970,7 @@ function BecomeSellerView() {
             <>
               <div style={{ fontSize: "36px" }}>📸</div>
               <p style={{ color: "#D97706", fontWeight: "bold", marginBottom: "4px" }}>Upload a photo (optional)</p>
-              <p style={{ color: "#92400E", fontSize: "12px" }}>Products or shopfront — JPG, PNG or WebP, max 5MB</p>
+              <p style={{ color: "#92400E", fontSize: "12px" }}>Products or shopfront: JPG, PNG or WebP, max 5MB</p>
             </>
           )}
         </div>
@@ -2044,10 +2133,15 @@ function SuccessModal({ order, bank, onClose }) {
           <p style={{ fontSize: "12px", color: "#92400E", marginTop: "5px" }}>Save this ID to track your order</p>
         </div>
         <div className="bank-box" style={{ textAlign: "left" }}>
-          <p style={{ fontWeight: "bold", color: "#1E40AF", marginBottom: "8px" }}>💳 Please pay to:</p>
-          <p style={{ fontWeight: "bold", color: "#1E3A8A" }}>{bank.name}</p>
-          <p style={{ color: "#1E40AF" }}>{bank.acc_num}</p>
-          <p style={{ color: "#1E40AF" }}>{bank.acc_name}</p>
+          <p style={{ fontWeight: "bold", color: "#1E40AF", marginBottom: "10px" }}>💳 Please pay to:</p>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "5px 14px", alignItems: "baseline" }}>
+            <span style={{ color: "#3B82F6", fontSize: "12px", fontWeight: 600 }}>Bank Name</span>
+            <span style={{ fontWeight: "bold", color: "#1E3A8A" }}>{bank.name}</span>
+            <span style={{ color: "#3B82F6", fontSize: "12px", fontWeight: 600 }}>Account Number</span>
+            <span style={{ color: "#1E40AF" }}>{bank.acc_num}</span>
+            <span style={{ color: "#3B82F6", fontSize: "12px", fontWeight: 600 }}>Account Name</span>
+            <span style={{ color: "#1E40AF" }}>{bank.acc_name}</span>
+          </div>
         </div>
         {order.method === 'delivery' && (order.location_name || order.specific_address) && (
           <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: "12px", padding: "15px", marginBottom: "15px", textAlign: "left" }}>
