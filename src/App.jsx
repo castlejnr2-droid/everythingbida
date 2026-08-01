@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import * as api from "./api.js";
 
-const formatPrice = (price) => `₦${Number(price).toLocaleString()}`;
+const formatPrice = (price) => `₦${Number(price).toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+const fmtDate = (iso) => new Date(iso).toLocaleString('en-NG', { timeZone: 'Africa/Lagos', dateStyle: 'medium', timeStyle: 'short' });
 
 // Deterministic color from category name
 const CAT_COLORS = ["#F59E0B","#DC2626","#B45309","#10B981","#6366F1","#EC4899","#8B5CF6","#14B8A6"];
@@ -87,14 +88,14 @@ const styles = `
   .logo { display: flex; align-items: center; gap: 10px; }
   .logo-icon { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; }
   .nav { display: flex; gap: 8px; flex-wrap: wrap; }
-  .nav-btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 500; font-size: 14px; background: #FEF3C7; color: #92400E; transition: all 0.2s; }
+  .nav-btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 500; font-size: 14px; background: #FEF3C7; color: #92400E; transition: all 0.2s; min-height: 44px; }
   .nav-btn:hover { background: #FDE68A; }
-  .nav-btn.active { background: #D97706; color: white; }
+  .nav-btn.active { background: #B45309; color: white; }
   .main { max-width: 1100px; margin: 0 auto; padding: 30px 20px; min-height: calc(100vh - 250px); }
   .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 15px; }
   .input { width: 100%; padding: 12px 15px; border-radius: 10px; border: 2px solid #FDE68A; font-size: 16px; margin-bottom: 12px; outline: none; font-family: Arial, sans-serif; }
   .input:focus { border-color: #D97706; }
-  .btn { padding: 12px 24px; border-radius: 10px; border: none; background: linear-gradient(135deg, #D97706, #B45309); color: white; font-weight: bold; font-size: 16px; cursor: pointer; display: inline-block; text-align: center; transition: transform 0.2s; }
+  .btn { padding: 12px 24px; border-radius: 10px; border: none; background: linear-gradient(135deg, #B45309, #78350F); color: white; font-weight: bold; font-size: 16px; cursor: pointer; display: inline-block; text-align: center; transition: transform 0.2s; }
   .btn:hover { transform: scale(1.02); }
   .btn:active { transform: scale(0.98); }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
@@ -115,7 +116,7 @@ const styles = `
   .product-price { font-size: 22px; font-weight: bold; color: #78350F; }
   .cart-item { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; padding: 15px; border-bottom: 1px solid #FEF3C7; }
   .cart-item-img { width: 55px; height: 55px; border-radius: 10px; background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; font-size: 30px; background-color: #FEF3C7; flex-shrink: 0; }
-  .qty-btn { width: 32px; height: 32px; border-radius: 8px; border: none; background: #FEF3C7; cursor: pointer; font-weight: bold; font-size: 16px; color: #92400E; transition: background 0.2s; }
+  .qty-btn { width: 44px; height: 44px; border-radius: 8px; border: none; background: #FEF3C7; cursor: pointer; font-weight: bold; font-size: 16px; color: #92400E; transition: background 0.2s; }
   .qty-btn:hover { background: #FDE68A; }
   .delivery-options { display: flex; gap: 12px; margin-bottom: 15px; }
   .delivery-option { flex: 1; padding: 15px; border-radius: 12px; border: 2px solid #FDE68A; text-align: center; cursor: pointer; background: white; transition: all 0.2s; }
@@ -127,7 +128,7 @@ const styles = `
   .bank-box { background: #EFF6FF; border-radius: 12px; padding: 15px; margin-bottom: 15px; }
   .order-id-box { background: #FEF3C7; border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center; }
   .payment-box { background: #FEF3C7; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
-  .chat-header { background: linear-gradient(135deg, #D97706, #B45309); padding: 15px 20px; border-radius: 16px 16px 0 0; color: white; }
+  .chat-header { background: linear-gradient(135deg, #B45309, #78350F); padding: 15px 20px; border-radius: 16px 16px 0 0; color: white; }
   .chat-messages { height: 350px; overflow-y: auto; padding: 15px; background: #FFFBEB; }
   .chat-input-area { padding: 15px; border-top: 2px solid #FDE68A; display: flex; gap: 10px; position: relative; background: white; border-radius: 0 0 16px 16px; }
   .msg { margin-bottom: 15px; }
@@ -165,7 +166,7 @@ const styles = `
   .flex-1 { flex: 1; }
   .stock-badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; display: inline-block; margin-top: 4px; }
   .stock-ok { background: #D1FAE5; color: #065F46; }
-  .stock-out { background: #FEE2E2; color: #DC2626; }
+  .stock-out { background: #FEE2E2; color: #991B1B; }
   .out-of-stock-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
   .out-of-stock-text { background: #DC2626; color: white; padding: 8px 20px; border-radius: 8px; font-weight: bold; font-size: 16px; transform: rotate(-15deg); }
   .search-bar { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; flex-wrap: wrap; }
@@ -173,7 +174,7 @@ const styles = `
   .category-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
   .cat-btn { padding: 6px 16px; border-radius: 20px; border: 2px solid #FDE68A; background: white; color: #92400E; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
   .cat-btn:hover { border-color: #D97706; background: #FEF3C7; }
-  .cat-btn.active { background: linear-gradient(135deg, #D97706, #B45309); color: white; border-color: #D97706; }
+  .cat-btn.active { background: linear-gradient(135deg, #B45309, #78350F); color: white; border-color: #B45309; }
   .track-section { max-width: 500px; margin: 0 auto; }
   .track-timeline { position: relative; padding-left: 30px; margin: 20px 0; }
   .track-step { position: relative; padding-bottom: 20px; padding-left: 15px; }
@@ -201,12 +202,12 @@ const styles = `
   .vendor-filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
   .vendor-filter-tab { padding: 5px 14px; border-radius: 20px; border: 2px solid #FDE68A; background: white; color: #92400E; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; }
   .vendor-filter-tab:hover { border-color: #D97706; background: #FEF3C7; }
-  .vendor-filter-tab.active { background: linear-gradient(135deg, #D97706, #B45309); color: white; border-color: #D97706; }
+  .vendor-filter-tab.active { background: linear-gradient(135deg, #B45309, #78350F); color: white; border-color: #B45309; }
   .vendor-card { border: 1px solid #FDE68A; border-radius: 14px; padding: 18px; margin-bottom: 14px; }
   .vendor-photo { width: 80px; height: 80px; border-radius: 10px; background-size: cover; background-position: center; background-color: #FEF3C7; display: flex; align-items: center; justify-content: center; font-size: 36px; flex-shrink: 0; }
   .seller-form-confirm { background: #D1FAE5; border: 2px solid #6EE7B7; border-radius: 14px; padding: 28px; text-align: center; }
   /* --- Landing / Hero --- */
-  .hero { background: linear-gradient(135deg, #78350F 0%, #B45309 60%, #D97706 100%); border-radius: 20px; padding: 44px 28px 36px; text-align: center; margin-bottom: 32px; color: white; }
+  .hero { background: linear-gradient(135deg, #78350F 0%, #B45309 100%); border-radius: 20px; padding: 44px 28px 36px; text-align: center; margin-bottom: 32px; color: white; }
   .hero-title { font-size: clamp(30px, 7vw, 52px); font-weight: 900; letter-spacing: -0.5px; margin-bottom: 10px; line-height: 1.1; }
   .hero-tagline { font-size: clamp(15px, 3.5vw, 19px); color: rgba(255,255,255,0.88); margin-bottom: 28px; line-height: 1.5; }
   .hero-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
@@ -230,7 +231,7 @@ const styles = `
   .eta-msg { background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 11px 14px; color: #92400E; font-size: 13px; line-height: 1.5; margin: 10px 0; }
   .eta-msg.eta-delivered { background: #D1FAE5; border-color: #6EE7B7; color: #065F46; }
   .status-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .next-status-btn { padding: 8px 14px; border-radius: 8px; border: none; background: linear-gradient(135deg, #D97706, #B45309); color: white; font-weight: bold; font-size: 13px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+  .next-status-btn { padding: 8px 14px; border-radius: 8px; border: none; background: linear-gradient(135deg, #B45309, #78350F); color: white; font-weight: bold; font-size: 13px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
   .next-status-btn:hover { opacity: 0.88; }
   .toggle-paid-btn { padding: 8px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; border: 2px solid #6EE7B7; background: #D1FAE5; color: #065F46; font-weight: 600; white-space: nowrap; }
   .toggle-unpaid-btn { padding: 8px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; border: 2px solid #FCA5A5; background: #FEE2E2; color: #DC2626; font-weight: 600; white-space: nowrap; }
@@ -250,6 +251,16 @@ const styles = `
   @media (max-width: 480px) { .rail-card { flex: 0 0 170px; } }
   /* --- Shop landing block (moved to bottom) --- */
   .shop-landing { margin-top: 48px; }
+  /* --- Admin chat responsive layout --- */
+  .chat-layout { display: grid; gap: 20px; }
+  .chat-layout.admin-mode { grid-template-columns: minmax(200px, 280px) 1fr; }
+  @media (max-width: 640px) { .chat-layout.admin-mode { grid-template-columns: 1fr; } }
+  /* --- Focus-visible accessibility --- */
+  button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid #B45309; outline-offset: 2px; }
+  /* --- Inline admin toast messages --- */
+  .admin-toast { border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .admin-toast.success { background: #D1FAE5; border: 2px solid #6EE7B7; color: #065F46; }
+  .admin-toast.error { background: #FEE2E2; border: 2px solid #FCA5A5; color: #DC2626; }
 `;
 
 
@@ -399,7 +410,7 @@ export default function App() {
       {cart.length > 0 && currentView === "shop" && (
         <div onClick={() => setCurrentView("cart")} style={{
           position: "fixed", bottom: "110px", right: "20px", zIndex: 149,
-          background: "linear-gradient(135deg, #D97706, #B45309)",
+          background: "linear-gradient(135deg, #B45309, #78350F)",
           color: "white", borderRadius: "30px", padding: "14px 22px",
           display: "flex", alignItems: "center", gap: "10px",
           cursor: "pointer", boxShadow: "0 8px 25px rgba(217,119,6,0.5)",
@@ -438,7 +449,7 @@ function Header({ isAdmin, currentView, setCurrentView, setShowLoginModal, handl
         { id: "cart", label: `Cart${cartCount > 0 ? ` (${cartCount})` : ""}`, icon: "🛒" },
         { id: "track", label: "Track", icon: "📦" },
         { id: "chat", label: "Chat", icon: "💬" },
-        { id: "become-seller", label: "Sell With Us", icon: "🏬" },
+        { id: "become-seller", label: "Become a Seller", icon: "🏬" },
       ];
   return (
     <header className="header">
@@ -472,6 +483,17 @@ function StockBadge({ inStock }) {
   if (inStock === undefined || inStock === null) return null;
   if (!inStock) return <span className="stock-badge stock-out">Out of Stock</span>;
   return <span className="stock-badge stock-ok">In Stock</span>;
+}
+
+// Inline admin toast — replaces all browser alert() calls in admin views
+function InlineMsg({ msg, onClose }) {
+  if (!msg) return null;
+  return (
+    <div role="alert" className={`admin-toast ${msg.type}`}>
+      <span>{msg.type === 'error' ? '⚠️ ' : '✅ '}{msg.text}</span>
+      <button onClick={onClose} aria-label="Dismiss" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '18px', lineHeight: 1, padding: '0 4px', marginLeft: '10px' }}>×</button>
+    </div>
+  );
 }
 
 // --- Discovery rail: single horizontal scroll strip of product cards ---
@@ -758,7 +780,7 @@ function TrackOrderView({ initialOrderId, setCurrentView, setSelectedOrder }) {
               <div>
                 <h3 style={{ color: "#78350F", fontFamily: "monospace", fontSize: "18px" }}>{foundOrder.id}</h3>
                 <p style={{ color: "#92400E", fontSize: "12px", marginTop: "4px" }}>
-                  Placed: {new Date(foundOrder.created_at).toLocaleString()}
+                  Placed: {fmtDate(foundOrder.created_at)}
                 </p>
               </div>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -775,7 +797,7 @@ function TrackOrderView({ initialOrderId, setCurrentView, setSelectedOrder }) {
             )}
 
             {/* Status timeline */}
-            <div className="track-timeline">
+            <div className="track-timeline" aria-live="polite" aria-atomic="true">
               {steps.map((step, idx) => {
                 const isCompleted = idx < currentIdx;
                 const isCurrent = idx === currentIdx;
@@ -937,12 +959,12 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
 
       <div className="card">
         <h3 style={{ color: "#78350F", marginBottom: "20px" }}>Customer Information</h3>
-        <input type="text" className="input" placeholder="Name" value={customerInfo.name}
+        <input type="text" className="input" placeholder="Name" aria-label="Your name" value={customerInfo.name}
           onChange={e => { setCustomerInfo(prev => ({ ...prev, name: e.target.value })); setErrors(prev => ({ ...prev, name: undefined })); }} />
-        {errors.name && <span className="inline-error">{errors.name}</span>}
-        <input type="tel" className="input" placeholder="Phone Number" value={customerInfo.phone}
+        {errors.name && <span className="inline-error" role="alert">{errors.name}</span>}
+        <input type="tel" className="input" placeholder="Phone Number" aria-label="Phone number" value={customerInfo.phone}
           onChange={e => { setCustomerInfo(prev => ({ ...prev, phone: e.target.value })); setErrors(prev => ({ ...prev, phone: undefined })); }} />
-        {errors.phone && <span className="inline-error">{errors.phone}</span>}
+        {errors.phone && <span className="inline-error" role="alert">{errors.phone}</span>}
 
         <label style={{ display: "block", fontSize: "13px", color: "#92400E", marginBottom: "4px", marginTop: "6px" }}>
           Email <span style={{ fontWeight: "normal", color: "#B45309" }}>(optional): get your order details and tracking link</span>
@@ -1040,11 +1062,12 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
   const [newCatName, setNewCatName] = useState("");
   const [newCatEmoji, setNewCatEmoji] = useState("");
   const [savingCat, setSavingCat] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert("Max 5MB"); return; }
+    if (file.size > 5 * 1024 * 1024) { setToast({ type: 'error', text: 'Image too large — max 5 MB' }); return; }
     setUploading(true);
     const reader = new FileReader();
     reader.onloadend = async () => {
@@ -1055,7 +1078,7 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
         setFormData(f => ({ ...f, image_id: id }));
         setImgPreview(api.imageUrl(id));
       } catch (err) {
-        alert('Image upload failed: ' + err.message);
+        setToast({ type: 'error', text: 'Image upload failed: ' + err.message });
       } finally {
         setUploading(false);
       }
@@ -1095,14 +1118,14 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
       setAddingCategory(false);
       setNewCatName(""); setNewCatEmoji("");
     } catch (err) {
-      alert('Error creating category: ' + err.message);
+      setToast({ type: 'error', text: 'Error creating category: ' + err.message });
     } finally {
       setSavingCat(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.price) { alert("Name and price are required"); return; }
+    if (!formData.name || !formData.price) { setToast({ type: 'error', text: 'Name and price are required' }); return; }
     const body = {
       name: formData.name.trim(),
       price: parseInt(formData.price),
@@ -1116,7 +1139,7 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
       if (editingId) {
         const updated = await api.updateProduct(editingId, body);
         setProducts(prev => prev.map(p => p.id === editingId ? updated : p));
-        alert("Product updated!");
+        setToast({ type: 'success', text: 'Product updated!' });
         cancelEdit();
       } else {
         const created = await api.createProduct(body);
@@ -1124,10 +1147,10 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
         setFormData(initialForm);
         setImgPreview(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
-        alert("Product added!");
+        setToast({ type: 'success', text: 'Product added!' });
       }
     } catch (err) {
-      alert('Error: ' + err.message);
+      setToast({ type: 'error', text: 'Error: ' + err.message });
     }
   };
 
@@ -1137,7 +1160,7 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
       await api.deleteProduct(id);
       setProducts(prev => prev.filter(p => p.id !== id));
     } catch (err) {
-      alert('Error: ' + err.message);
+      setToast({ type: 'error', text: 'Error: ' + err.message });
     }
   };
 
@@ -1146,13 +1169,14 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
       const updated = await api.updateProduct(product.id, { in_stock: !product.in_stock });
       setProducts(prev => prev.map(p => p.id === product.id ? { ...p, ...updated } : p));
     } catch (err) {
-      alert('Error: ' + err.message);
+      setToast({ type: 'error', text: 'Error: ' + err.message });
     }
   };
 
   return (
     <>
       <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#78350F", marginBottom: "25px" }}>Product Management</h2>
+      <InlineMsg msg={toast} onClose={() => setToast(null)} />
       <div className="card">
         <h3 style={{ color: "#78350F", marginBottom: "20px" }}>{editingId ? "✏️ Edit Product" : "➕ Add New Product"}</h3>
         <div className="image-upload-area" onClick={() => !imgPreview && fileInputRef.current?.click()}>
@@ -1254,6 +1278,7 @@ function CategoriesView({ setCategories }) {
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState("");
   const [editEmoji, setEditEmoji] = useState("");
+  const [toast, setToast] = useState(null);
 
   const refresh = async () => {
     const cats = await api.getAdminCategories();
@@ -1271,7 +1296,7 @@ function CategoriesView({ setCategories }) {
       await api.createCategory({ name: newName.trim(), emoji: newEmoji.trim(), sort_order: adminCats.length });
       setNewName(""); setNewEmoji("");
       await refresh();
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { setToast({ type: 'error', text: 'Error: ' + err.message }); }
   };
 
   const startEdit = (cat) => { setEditingId(cat.id); setEditValue(cat.name); setEditEmoji(cat.emoji || ""); };
@@ -1282,7 +1307,7 @@ function CategoriesView({ setCategories }) {
       await api.updateCategory(editingId, { name: editValue.trim(), emoji: editEmoji.trim() });
       setEditingId(null);
       await refresh();
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { setToast({ type: 'error', text: 'Error: ' + err.message }); }
   };
 
   const deleteCategory = async (cat) => {
@@ -1291,8 +1316,7 @@ function CategoriesView({ setCategories }) {
       await api.deleteCategory(cat.id);
       await refresh();
     } catch (err) {
-      // Surface 409 (products exist) as a clear message, not a generic alert
-      alert(err.message);
+      setToast({ type: 'error', text: err.message });
     }
   };
 
@@ -1307,7 +1331,7 @@ function CategoriesView({ setCategories }) {
         api.updateCategory(b.id, { sort_order: a.sort_order }),
       ]);
       await refresh();
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { setToast({ type: 'error', text: 'Error: ' + err.message }); }
   };
 
   if (loading) return <div className="card text-center" style={{ padding: "40px" }}><p style={{ color: "#92400E" }}>Loading categories…</p></div>;
@@ -1315,6 +1339,7 @@ function CategoriesView({ setCategories }) {
   return (
     <>
       <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#78350F", marginBottom: "25px" }}>🏷️ Manage Categories</h2>
+      <InlineMsg msg={toast} onClose={() => setToast(null)} />
       <div className="card" style={{ marginBottom: "20px" }}>
         <h3 style={{ color: "#78350F", marginBottom: "15px" }}>Add New Category</h3>
         <div style={{ display: "flex", gap: "10px" }}>
@@ -1363,6 +1388,7 @@ function LocationsView({ setLocations }) {
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editFee, setEditFee] = useState("");
+  const [toast, setToast] = useState(null);
 
   const refreshAll = async () => {
     const [all, active] = await Promise.all([
@@ -1382,7 +1408,7 @@ function LocationsView({ setLocations }) {
       await api.createLocation({ name: newName.trim(), delivery_fee: parseFloat(newFee) || 0 });
       setNewName(""); setNewFee("");
       await refreshAll();
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { setToast({ type: 'error', text: 'Error: ' + err.message }); }
   };
 
   const startEdit = (loc) => { setEditingId(loc.id); setEditName(loc.name); setEditFee(String(loc.delivery_fee)); };
@@ -1393,7 +1419,7 @@ function LocationsView({ setLocations }) {
       await api.updateLocation(editingId, { name: editName.trim(), delivery_fee: parseFloat(editFee) || 0 });
       setEditingId(null);
       await refreshAll();
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { setToast({ type: 'error', text: 'Error: ' + err.message }); }
   };
 
   const deactivate = async (id) => {
@@ -1401,14 +1427,14 @@ function LocationsView({ setLocations }) {
     try {
       await api.updateLocation(id, { active: false });
       await refreshAll();
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { setToast({ type: 'error', text: 'Error: ' + err.message }); }
   };
 
   const reactivate = async (id) => {
     try {
       await api.updateLocation(id, { active: true });
       await refreshAll();
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { setToast({ type: 'error', text: 'Error: ' + err.message }); }
   };
 
   const hardDelete = async (id) => {
@@ -1416,7 +1442,7 @@ function LocationsView({ setLocations }) {
     try {
       await api.deleteLocation(id);
       await refreshAll();
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { setToast({ type: 'error', text: 'Error: ' + err.message }); }
   };
 
   const active = adminLocs.filter(l => l.active);
@@ -1431,6 +1457,7 @@ function LocationsView({ setLocations }) {
   return (
     <>
       <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#78350F", marginBottom: "25px" }}>📍 Delivery Locations</h2>
+      <InlineMsg msg={toast} onClose={() => setToast(null)} />
       <div className="card" style={{ marginBottom: "20px" }}>
         <h3 style={{ color: "#78350F", marginBottom: "15px" }}>Add New Location</h3>
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -1513,6 +1540,7 @@ function getNextStatus(order) {
 function OrdersView({ setSelectedOrder, setCurrentView }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
 
   const fetchOrders = useCallback(async () => {
     const data = await api.getAdminOrders();
@@ -1527,14 +1555,14 @@ function OrdersView({ setSelectedOrder, setCurrentView }) {
     try {
       await api.putOrderStatus(orderId, status);
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { setToast({ type: 'error', text: 'Error: ' + err.message }); }
   };
 
   const handleTogglePaid = async (orderId, currentPaid) => {
     try {
       await api.putOrderPaid(orderId, !currentPaid);
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paid: !currentPaid } : o));
-    } catch (err) { alert('Error: ' + err.message); }
+    } catch (err) { setToast({ type: 'error', text: 'Error: ' + err.message }); }
   };
 
   if (loading) return (
@@ -1561,6 +1589,7 @@ function OrdersView({ setSelectedOrder, setCurrentView }) {
   return (
     <>
       <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#78350F", marginBottom: "25px" }}>Order Management</h2>
+      <InlineMsg msg={toast} onClose={() => setToast(null)} />
       {orders.map(order => {
         const nextStatus = getNextStatus(order);
         return (
@@ -1572,7 +1601,7 @@ function OrdersView({ setSelectedOrder, setCurrentView }) {
                   <span className={`status-badge ${STATUS_CSS[order.status] || 'status-pending'}`}>{STATUS_LABELS[order.status] || order.status}</span>
                   <span className={`status-badge ${order.paid ? 'status-paid' : 'status-badge-unpaid'}`}>{order.paid ? "✓ Paid" : "Unpaid"}</span>
                 </div>
-                <p style={{ color: "#92400E", fontSize: "12px", marginTop: "5px" }}>{new Date(order.created_at).toLocaleString()}</p>
+                <p style={{ color: "#92400E", fontSize: "12px", marginTop: "5px" }}>{fmtDate(order.created_at)}</p>
               </div>
 
               {/* Status controls: suggested next + manual override + paid toggle + chat */}
@@ -1637,6 +1666,7 @@ function ChatView({ isAdmin, selectedOrder, setSelectedOrder }) {
   const [imgMime, setImgMime] = useState(null);
   const [imgData, setImgData] = useState(null);
   const [imgPreview, setImgPreview] = useState(null);
+  const [chatError, setChatError] = useState("");
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -1654,7 +1684,7 @@ function ChatView({ isAdmin, selectedOrder, setSelectedOrder }) {
       setCurrentOrderId(orderId);
       if (setSelectedOrder) setSelectedOrder(orderId);
     } catch (err) {
-      alert('Could not load chat: ' + err.message);
+      setChatError('Could not load chat: ' + err.message);
     }
   }, [setSelectedOrder]);
 
@@ -1678,7 +1708,7 @@ function ChatView({ isAdmin, selectedOrder, setSelectedOrder }) {
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert("Max 5MB"); return; }
+    if (file.size > 5 * 1024 * 1024) { setChatError('Image too large — max 5 MB'); return; }
     const reader = new FileReader();
     reader.onloadend = () => {
       setImgPreview(reader.result);
@@ -1704,7 +1734,7 @@ function ChatView({ isAdmin, selectedOrder, setSelectedOrder }) {
       setImgMime(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
-      alert('Send failed: ' + err.message);
+      setChatError('Send failed: ' + err.message);
     }
   };
 
@@ -1726,7 +1756,7 @@ function ChatView({ isAdmin, selectedOrder, setSelectedOrder }) {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: isAdmin ? "minmax(200px, 280px) 1fr" : "1fr", gap: "20px" }}>
+      <div className={`chat-layout${isAdmin ? " admin-mode" : ""}`}>
         {isAdmin && (
           <div className="card" style={{ height: "fit-content" }}>
             <h3 style={{ color: "#78350F", marginBottom: "15px", fontSize: "16px" }}>All Orders</h3>
@@ -1771,13 +1801,19 @@ function ChatView({ isAdmin, selectedOrder, setSelectedOrder }) {
                           )}
                           {msg.text && msg.text}
                         </div>
-                        <div className="msg-time">{new Date(msg.created_at).toLocaleTimeString()}</div>
+                        <div className="msg-time">{new Date(msg.created_at).toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos' })}</div>
                       </>
                     )}
                   </div>
                 ))}
                 <div ref={messagesEndRef} />
               </div>
+              {chatError && (
+                <div style={{ background: '#FEE2E2', border: '2px solid #FCA5A5', borderRadius: '10px', padding: '10px 14px', margin: '8px 15px 0', color: '#DC2626', fontWeight: 600, fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>⚠️ {chatError}</span>
+                  <button onClick={() => setChatError('')} aria-label="Dismiss" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', fontSize: '16px', padding: '0 4px' }}>×</button>
+                </div>
+              )}
               <div className="chat-input-area">
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageSelect} style={{ display: "none" }} />
                 {imgPreview && (
@@ -1807,6 +1843,7 @@ function ChatView({ isAdmin, selectedOrder, setSelectedOrder }) {
 
 function BankView({ bank, setBank }) {
   const [formData, setFormData] = useState(bank);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => { setFormData(bank); }, [bank]);
 
@@ -1814,15 +1851,16 @@ function BankView({ bank, setBank }) {
     try {
       const updated = await api.putBank({ name: formData.name, acc_num: formData.acc_num, acc_name: formData.acc_name });
       setBank(updated);
-      alert("Bank details saved!");
+      setToast({ type: 'success', text: 'Bank details saved!' });
     } catch (err) {
-      alert('Error: ' + err.message);
+      setToast({ type: 'error', text: 'Error: ' + err.message });
     }
   };
 
   return (
     <div style={{ maxWidth: "450px", margin: "0 auto" }}>
       <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#78350F", marginBottom: "25px" }}>Bank Account Settings</h2>
+      <InlineMsg msg={toast} onClose={() => setToast(null)} />
       <div className="card">
         <p style={{ color: "#92400E", marginBottom: "20px" }}>Customers will see this when placing orders.</p>
         <label style={{ display: "block", marginBottom: "8px", fontWeight: 600, color: "#92400E", fontSize: "14px" }}>Bank Name</label>
@@ -2003,6 +2041,7 @@ function SellersView({ onVendorDataChanged }) {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [updatingId, setUpdatingId] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const refresh = async (filter) => {
     setLoading(true);
@@ -2031,7 +2070,7 @@ function SellersView({ onVendorDataChanged }) {
       }
       onVendorDataChanged();
     } catch (err) {
-      alert('Error: ' + err.message);
+      setToast({ type: 'error', text: 'Error: ' + err.message });
     } finally {
       setUpdatingId(null);
     }
@@ -2046,7 +2085,7 @@ function SellersView({ onVendorDataChanged }) {
         )}
       </h2>
       <p style={{ color: "#92400E", marginBottom: "20px" }}>Review vendor applications and update their status.</p>
-
+      <InlineMsg msg={toast} onClose={() => setToast(null)} />
       <div className="vendor-filter-tabs">
         {['all', ...VENDOR_STATUSES].map(s => (
           <button key={s} className={`vendor-filter-tab ${statusFilter === s ? 'active' : ''}`} onClick={() => setStatusFilter(s)}>
@@ -2079,7 +2118,7 @@ function SellersView({ onVendorDataChanged }) {
                 <p style={{ color: "#92400E", fontSize: "14px", marginBottom: "4px" }}>📞 {v.phone}</p>
                 <p style={{ color: "#78350F", fontSize: "14px", marginBottom: "4px" }}><strong>Products:</strong> {v.product_types}</p>
                 {v.notes && <p style={{ color: "#92400E", fontSize: "13px", marginBottom: "4px" }}><strong>Notes:</strong> {v.notes}</p>}
-                <p style={{ color: "#B45309", fontSize: "12px" }}>Submitted: {new Date(v.created_at).toLocaleString()}</p>
+                <p style={{ color: "#B45309", fontSize: "12px" }}>Submitted: {fmtDate(v.created_at)}</p>
               </div>
             </div>
             <div style={{ display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap", alignItems: "center" }}>
