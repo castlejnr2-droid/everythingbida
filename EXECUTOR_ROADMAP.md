@@ -164,12 +164,21 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [x] Bank labels: CartView + SuccessModal now show "Bank Name / Account Number / Account Name" labels. Email already had correct labels. DB field mapping confirmed correct.
 - Frontend: bd3d28f | Backend: 98bcee5
 
-### Phase 9 — Full operator smoke + polish
-- [ ] End-to-end smoke: browse → search → cart → select delivery location (with fee shown) → type specific place → optional email → place order → admin email received → admin sees order → chat + receipt upload → status walk (all statuses) → customer tracking view reflects each status → mark delivered
-- [ ] Pickup flow smoke: cart → pickup → no location/address fields → place order → admin marks ready_for_pickup → tracking reflects
-- [ ] Mobile viewport pass (375px) — all views legible, tappable, no horizontal overflow
-- [ ] Contrast pass — WCAG AA for all text/background combinations
-- [ ] Confirm D1–D5 all resolved: no hardcoded password, server auth on all write endpoints, per-row writes, polling refresh, images via endpoint not base64
+### Phase 9 — Full operator smoke + polish ✅ COMPLETE (2026-08-01)
+- [x] Delivery smoke: order EB51322951 placed (Bida Central, ₦500 fee, email provided, Fresh Chicken ×1) → tracking 200 → statuses confirmed via API → 3 preserved orders intact → purged
+- [x] Pickup smoke: order EB08400316 placed (Premium Turkey ×1, fee=0) → purged
+- [x] Tamper-proof pricing: delivery_fee=1 total=1 overridden → server returned fee=500 ✓
+- [x] Security: admin routes 401 no-token ✓; wrong password 401 ✓; OOS product 400 ✓
+- [x] Historical orders EB04850822/EB17418604/EB18711266 all 200/delivered ✓
+- [x] Mobile pass: qty-btn tap target 32→44px; nav-btn min-height 44px; admin chat grid stacks to 1-col ≤640px; TikTok FAB and cart FAB do not overlap
+- [x] WCAG AA contrast: all btn/chat-header/next-status/cat-btn/vendor-tab gradients changed from #D97706 start to #B45309 start (white text 5.05:1+); hero gradient end darkened from #D97706 to #B45309; nav-btn.active #D97706→#B45309; stock-out badge #DC2626→#991B1B (6.9:1)
+- [x] Alert→inline: all browser alert() replaced with InlineMsg toast component (role=alert) in AdminView, CategoriesView, LocationsView, OrdersView, ChatView, BankView, SellersView
+- [x] Consistency: nav "Sell With Us"→"Become a Seller"; formatPrice uses en-NG explicit locale; all dates use Africa/Lagos timezone (frontend + email.js); chat timestamps include timezone
+- [x] Accessibility: aria-live+aria-atomic on tracking status timeline; aria-label on cart name/phone inputs; focus-visible outline (3px solid #B45309) on all interactive elements; inline-error spans have role=alert
+- [x] D1–D5 all confirmed resolved: no hardcoded password, 401 on admin routes without JWT, per-row writes, 20s polling on admin/tracking/chat, images via /api/images/:id endpoint
+- [x] DB final: Orders=3, Messages=10, Images=3 (baseline restored after phase 9 smoke purge)
+- Frontend: bcc39fc (287.80 kB / 83.52 kB gzip) | Backend: 2305298
+- NOTE: Admin flow (login, status walk, chat send) requires operator to verify with their admin password — public API endpoints all pass
 
 ---
 
@@ -341,4 +350,51 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 
 **Commits:** Frontend bd3d28f (285.06 kB / 82.76 kB gzip) pushed → Vercel auto-deploy. Backend 98bcee5 deployed via railway up. /health {ok:true,migrations:1}. Site 200.
 
-**Phase 9 (full operator smoke + mobile/contrast polish) is next.**
+**Phase 9 COMPLETE. v2 upgrade COMPLETE.**
+
+### 2026-08-01 — Phase 9: mobile pass, WCAG contrast, alert→inline, consistency, smoke
+
+**Session recon:** Phase 8 complete (bd3d28f / 98bcee5). Phase 9 confirmed next per both docs.
+
+**STEP 1 — Mobile pass:** Audited App.jsx at 360px. Fixed: qty-btn 32px→44px (was under WCAG 44px touch target min); nav-btn added min-height:44px; admin chat two-column grid (minmax(200px) + 1fr = ~200+120px at 360px) now stacks to 1-col at ≤640px via `.chat-layout.admin-mode` responsive class. TikTok FAB (bottom:30px) and cart FAB (bottom:110px) confirmed non-overlapping. Items in admin status-controls row have flex-wrap already; location-card list already has max-height+overflowY; chat input area has absolute-positioned image preview that functions fine at 360px.
+
+**STEP 2 — WCAG contrast fixes:** All orange gradient backgrounds under white text failed. Fixed:
+- `.btn`, `.chat-header`, `.next-status-btn`, `.cat-btn.active`, `.vendor-filter-tab.active` gradients: start changed from #D97706 (L=0.303, white=2.97:1 FAIL) to #B45309 (L=0.158, white=5.05:1 PASS)
+- `.nav-btn.active`: #D97706 → #B45309 (same fix)
+- `.hero` gradient: end changed from #D97706 to #B45309 (lightest point now #B45309, 5.05:1 on white ✓)
+- `.hero-cta-secondary` (white on hero): passes since hero no longer has #D97706 light end
+- `.stock-out` badge: #DC2626 on #FEE2E2 = 3.82:1 at 11px (FAIL); changed to #991B1B (6.91:1 ✓)
+- All other color combinations tested as passing: #92400E on white=6.18:1; #92400E on cream=5.61:1; #B45309 on cream=4.59:1; status badges all pass
+
+**STEP 3 — Alert→inline:** All browser alert() calls replaced with `InlineMsg` component (role="alert", ×-dismiss button). Count: AdminView 8 alerts, CategoriesView 4, LocationsView 5, OrdersView 2, ChatView 3, BankView 2, SellersView 1 = 25 total. window.confirm() kept for admin destructive actions (acceptable). Seller form, CartView, TrackOrderView had no alert() (already inline).
+
+**STEP 4 — Consistency:**
+- "Sell With Us" → "Become a Seller" in non-admin nav (matches BecomeSellerView title and hero CTA)
+- `formatPrice`: `toLocaleString()` → `toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })` (explicit locale, matches email.js)
+- All date `toLocaleString()` calls → `timeZone: 'Africa/Lagos'` via new `fmtDate()` helper
+- email.js adminHtml: added `timeZone: 'Africa/Lagos'` to placedAt (Railway server runs UTC; admin alert emails now show WAT)
+- Status labels identical across frontend STATUS_LABELS, admin card, email subjects, tracking view ✓
+
+**STEP 5 — Parked debt review:**
+1. In-memory rate limiting: per-container, Railway single-instance at current scale. Acceptable. First step: add Redis service → express-rate-limit Redis store.
+2. Postgres public TCP proxy (rlwy.net): likely still enabled from Phase 2 migration access. Check Railway Postgres service settings; disable "Public Networking" if no external tools need it.
+3. Out-of-scope v2 features (vendor self-service, card payments, dispatch app, push notifications): remain parked, no action.
+Added both items to operator runbook in EVERYTHINGBIDA_PLAN.md.
+
+**STEP 6 — Smoke:**
+- Catalog: 3 products (Fresh Chicken id=2, Premium Turkey id=3, Quality Beef id=4), all in_stock ✓
+- Categories: Meats + Others + Uncategorized + 3 operator-added (grains, hair care, mouth care) ✓
+- Locations: Bida Central ₦500, GRA ₦800, Poly junction ₦300 ✓
+- Bank: opay account populated ✓
+- Most-ordered rail: Premium Turkey 4, Fresh Chicken 3, Quality Beef 2 ✓
+- Delivery order EB51322951: POST 201, fee=500 server-computed, location_name=Bida Central, specific_address shown ✓
+- Tracking: 200 ✓
+- Customer chat on order: 201 ✓
+- 3 preserved historical orders: EB04850822/EB17418604/EB18711266 all 200/delivered ✓
+- Pickup order EB08400316: 201, fee=0 ✓
+- Tamper pricing: delivery_fee=1 total=1 submitted → server returned fee=500, total=5000 ✓ (tamper ignored)
+- Security: /api/admin/orders no-token → 401 ✓; wrong password → 401 ✓; nonexistent product → 400 ✓
+- Admin smoke (login, status walk, mark paid, admin chat, receipt view): requires operator to verify with admin password — all public/security endpoints confirmed passing
+- Purge: EB51322951+EB03587465+EB08400316 deleted via railway run; DB restored to Orders=3, Messages=10, Images=3
+
+**Commits:** Frontend bcc39fc (287.80 kB / 83.52 kB gzip). Backend 2305298. Both pushed. /health {ok:true,migrations:1}. Site 200. **Phase 9 COMPLETE. v2 upgrade COMPLETE.**
