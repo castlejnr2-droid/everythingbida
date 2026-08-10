@@ -77,3 +77,12 @@ export const putVendorStatus = (id, status) => req('PUT', `/api/admin/vendors/${
 
 // Admin products (includes vendor_id)
 export const getAdminProducts = () => req('GET', '/api/admin/products', null, true);
+
+// --- AI Assistant ---
+export const postAssistant = (body) => req('POST', '/api/assistant', body);
+export const postProductRequest = (body) => req('POST', '/api/product-requests', body);
+
+// --- Admin: Product Requests queue ---
+export const getAdminProductRequests = () => req('GET', '/api/admin/product-requests', null, true);
+export const putProductRequestStatus = (id, status) =>
+  req('PUT', `/api/admin/product-requests/${id}/status`, { status }, true);

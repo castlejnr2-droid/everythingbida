@@ -261,6 +261,46 @@ const styles = `
   .admin-toast { border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
   .admin-toast.success { background: #D1FAE5; border: 2px solid #6EE7B7; color: #065F46; }
   .admin-toast.error { background: #FEE2E2; border: 2px solid #FCA5A5; color: #DC2626; }
+  /* --- AI Chat Bubble (bottom-LEFT to avoid TikTok button on bottom-right) --- */
+  .ai-bubble-btn { position: fixed; bottom: 30px; left: 20px; width: 56px; height: 56px; background: linear-gradient(135deg, #B45309, #78350F); border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 20px rgba(180,83,9,0.4); z-index: 148; transition: transform 0.2s; color: white; }
+  .ai-bubble-btn:hover { transform: scale(1.1); }
+  /* Panel: opens above bubble, left-anchored, max 360px wide, max 70vh tall */
+  .ai-panel { position: fixed; bottom: 96px; left: 20px; width: calc(100vw - 40px); max-width: 360px; max-height: 70vh; background: white; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; z-index: 148; overflow: hidden; }
+  .ai-panel-header { background: linear-gradient(135deg, #B45309, #78350F); padding: 14px 18px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .ai-panel-close { background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1; padding: 2px 8px; }
+  .ai-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .ai-msg-user { display: flex; justify-content: flex-end; }
+  .ai-msg-user > span { background: #D97706; color: white; padding: 10px 14px; border-radius: 12px 12px 2px 12px; max-width: 82%; font-size: 14px; word-break: break-word; display: inline-block; }
+  .ai-msg-bot { display: flex; flex-direction: column; }
+  .ai-bubble-text { background: #FEF3C7; border: 1px solid #FDE68A; color: #78350F; padding: 10px 14px; border-radius: 12px 12px 12px 2px; font-size: 14px; word-break: break-word; align-self: flex-start; max-width: 95%; }
+  .ai-product-row { display: flex; gap: 10px; overflow-x: auto; padding: 6px 0 4px; -webkit-overflow-scrolling: touch; }
+  .ai-pc { flex: 0 0 148px; border: 1px solid #FDE68A; border-radius: 12px; overflow: hidden; background: white; }
+  .ai-pc-img { height: 78px; background-color: #FEF3C7; background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .ai-pc-body { padding: 8px 10px; }
+  .ai-pc-name { font-weight: bold; color: #78350F; font-size: 12px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ai-pc-price { color: #92400E; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .ai-order-card { background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 12px; margin-top: 8px; font-size: 13px; color: #1E40AF; }
+  .ai-order-card strong { color: #1E3A8A; }
+  .ai-tell-btn { background: #FEF3C7; border: 2px solid #D97706; color: #92400E; padding: 7px 13px; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 600; margin-top: 8px; display: inline-block; }
+  .ai-tell-btn:hover { background: #FDE68A; }
+  .ai-req-form { background: #FFFBEB; border: 2px solid #FDE68A; border-radius: 12px; padding: 14px; margin-top: 4px; }
+  .ai-req-confirm { background: #D1FAE5; border: 2px solid #6EE7B7; border-radius: 10px; padding: 12px 14px; color: #065F46; font-weight: 600; font-size: 14px; text-align: center; margin-top: 6px; }
+  .ai-input-area { padding: 11px 13px; border-top: 2px solid #FDE68A; display: flex; gap: 8px; background: white; flex-shrink: 0; }
+  .ai-input { flex: 1; padding: 10px 13px; border-radius: 10px; border: 2px solid #FDE68A; font-size: 14px; outline: none; font-family: Arial, sans-serif; }
+  .ai-input:focus { border-color: #D97706; }
+  .ai-send-btn { padding: 10px 14px; border-radius: 10px; border: none; background: linear-gradient(135deg, #B45309, #78350F); color: white; font-weight: bold; font-size: 14px; cursor: pointer; flex-shrink: 0; }
+  .ai-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .ai-loading { text-align: center; color: #92400E; font-size: 13px; padding: 6px; }
+  .ai-error { background: #FEE2E2; border: 1px solid #FCA5A5; color: #DC2626; padding: 10px 14px; border-radius: 10px; font-size: 13px; }
+  /* --- Admin: Product Requests --- */
+  .req-card { border: 1px solid #FDE68A; border-radius: 12px; padding: 16px; margin-bottom: 12px; background: white; }
+  .req-text { color: #78350F; font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+  .req-meta { color: #92400E; font-size: 13px; margin-bottom: 4px; }
+  .req-date { color: #B45309; font-size: 12px; margin-bottom: 10px; }
+  .req-status-pending  { background: #FEF3C7; color: #92400E; }
+  .req-status-reviewed { background: #DBEAFE; color: #1E40AF; }
+  .req-status-stocked  { background: #D1FAE5; color: #065F46; }
+  .req-status-declined { background: #FEE2E2; color: #DC2626; }
 `;
 
 
@@ -286,6 +326,7 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [approvedVendors, setApprovedVendors] = useState([]);
   const [pendingVendorCount, setPendingVendorCount] = useState(0);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -315,6 +356,13 @@ export default function App() {
     } catch { /* token may not be set yet */ }
   }, []);
 
+  const refreshRequestCount = useCallback(async () => {
+    try {
+      const reqs = await api.getAdminProductRequests();
+      setPendingRequestCount(reqs.filter(r => r.status === 'pending').length);
+    } catch { /* ignore — token may not be set */ }
+  }, []);
+
   const handleLogin = async (password) => {
     try {
       const { token } = await api.adminLogin(password);
@@ -323,17 +371,17 @@ export default function App() {
       setShowLoginModal(false);
       setLoginError("");
       setCurrentView("admin");
-      // Fetch vendor data now that we have a token
-      setTimeout(refreshVendorData, 0);
+      // Fetch vendor and request data now that we have a token
+      setTimeout(() => { refreshVendorData(); refreshRequestCount(); }, 0);
     } catch (err) {
       setLoginError(err.message || "Invalid password");
     }
   };
 
-  // Refresh vendor data if already logged in on page load
+  // Refresh vendor and request data if already logged in on page load
   useEffect(() => {
-    if (isAdmin) refreshVendorData();
-  }, [isAdmin, refreshVendorData]);
+    if (isAdmin) { refreshVendorData(); refreshRequestCount(); }
+  }, [isAdmin, refreshVendorData, refreshRequestCount]);
 
   const handleLogout = () => {
     api.clearToken();
@@ -341,6 +389,7 @@ export default function App() {
     setCurrentView("shop");
     setApprovedVendors([]);
     setPendingVendorCount(0);
+    setPendingRequestCount(0);
   };
 
   const addToCart = (product) => {
@@ -390,7 +439,7 @@ export default function App() {
       <style>{styles}</style>
       <Header isAdmin={isAdmin} currentView={currentView} setCurrentView={setCurrentView}
         setShowLoginModal={setShowLoginModal} handleLogout={handleLogout} cartCount={cart.length}
-        pendingVendorCount={pendingVendorCount} />
+        pendingVendorCount={pendingVendorCount} pendingRequestCount={pendingRequestCount} />
       <main className="main">
         {currentView === "shop" && <ShopView products={products} addToCart={addToCart} setCurrentView={setCurrentView} categories={categories} />}
         {currentView === "cart" && <CartView cart={cart} updateQty={updateQty} removeFromCart={removeFromCart} placeOrder={placeOrder} bank={bank} locations={locations} />}
@@ -403,6 +452,7 @@ export default function App() {
         {currentView === "sellers" && isAdmin && <SellersView onVendorDataChanged={refreshVendorData} />}
         {currentView === "orders" && isAdmin && <OrdersView setSelectedOrder={setSelectedOrder} setCurrentView={setCurrentView} />}
         {currentView === "bank" && isAdmin && <BankView bank={bank} setBank={setBank} />}
+        {currentView === "requests" && isAdmin && <RequestsView onCountChange={setPendingRequestCount} />}
       </main>
       <footer className="eb-footer">
         <p style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "8px" }}>© 2026 EverythingBida</p>
@@ -421,6 +471,7 @@ export default function App() {
           🛒 Proceed to Order
         </div>
       )}
+      <AIChatBubble addToCart={addToCart} setCurrentView={setCurrentView} setSelectedOrder={setSelectedOrder} />
       <div className="tiktok-float" onClick={() => window.open("https://tiktok.com/@everythingbida", "_blank")} title="Follow us on TikTok">
         <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
           <path d="M19.321 5.562a5.124 5.124 0 0 1-.443-.258 6.228 6.228 0 0 1-1.137-.966c-.849-.971-1.166-1.959-1.282-2.648h.004C16.368 1.308 16.393 1 16.396 1h-3.91v14.801c0 .196 0 .391-.008.583 0 .023-.002.045-.004.07v.012a3.257 3.257 0 0 1-1.67 2.653 3.2 3.2 0 0 1-1.585.417c-1.78 0-3.225-1.452-3.225-3.244 0-1.791 1.445-3.243 3.225-3.243.347 0 .681.057.994.158l.005-3.966a7.12 7.12 0 0 0-.999-.07C6.467 9.171 3.5 12.155 3.5 15.842 3.5 19.529 6.467 22.5 10.219 22.5c3.752 0 6.719-2.97 6.719-6.658v-7.5a10.09 10.09 0 0 0 5.562 1.671V6.059a5.646 5.646 0 0 1-3.179-.497z" fill="white"/>
@@ -432,7 +483,7 @@ export default function App() {
   );
 }
 
-function Header({ isAdmin, currentView, setCurrentView, setShowLoginModal, handleLogout, cartCount, pendingVendorCount }) {
+function Header({ isAdmin, currentView, setCurrentView, setShowLoginModal, handleLogout, cartCount, pendingVendorCount, pendingRequestCount }) {
   const navItems = isAdmin
     ? [
         { id: "shop", label: "Shop", icon: "🏪" },
@@ -441,6 +492,7 @@ function Header({ isAdmin, currentView, setCurrentView, setShowLoginModal, handl
         { id: "locations", label: "Locations", icon: "📍" },
         { id: "sellers", label: "Sellers", icon: "🏬", badge: pendingVendorCount > 0 ? pendingVendorCount : null },
         { id: "orders", label: "Orders", icon: "📋" },
+        { id: "requests", label: "Requests", icon: "📥", badge: pendingRequestCount > 0 ? pendingRequestCount : null },
         { id: "bank", label: "Bank", icon: "🏦" },
         { id: "chat", label: "Messages", icon: "💬" },
       ]
@@ -2137,6 +2189,382 @@ function SellersView({ onVendorDataChanged }) {
           </div>
         );
       })}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AI Chat: compact product card rendered from server-verified product IDs only
+// ---------------------------------------------------------------------------
+function ChatProductCard({ product, addToCart }) {
+  const imgSrc = product.image_id ? api.imageUrl(product.image_id) : null;
+  return (
+    <div className="ai-pc">
+      <div className="ai-pc-img" style={imgSrc ? { backgroundImage: `url(${imgSrc})` } : {}}>
+        {!imgSrc && <span>{getCategoryEmoji(product.category_name)}</span>}
+      </div>
+      <div className="ai-pc-body">
+        <div className="ai-pc-name" title={product.name}>{product.name}</div>
+        <div className="ai-pc-price">{formatPrice(product.price)}/kg</div>
+        <button
+          className="btn"
+          style={{ width: "100%", padding: "6px 8px", fontSize: "12px" }}
+          disabled={!product.in_stock}
+          onClick={() => addToCart(product)}
+        >
+          {product.in_stock ? "Add to Cart" : "Out of Stock"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AI Chat: order summary card — status/total from DB, never from model
+// ---------------------------------------------------------------------------
+function ChatOrderCard({ order, setCurrentView, setSelectedOrder }) {
+  const STATUS_LABELS_MAP = {
+    pending: 'Pending', confirmed: 'Confirmed', preparing: 'Preparing',
+    out_for_delivery: 'Out for Delivery', ready_for_pickup: 'Ready for Pickup', delivered: 'Delivered',
+  };
+  return (
+    <div className="ai-order-card">
+      <div style={{ fontWeight: "bold", marginBottom: "6px" }}>
+        Order {order.id}
+        <span className={`status-badge ${STATUS_CSS[order.status] || 'status-pending'}`}
+          style={{ marginLeft: "8px", fontSize: "11px" }}>
+          {STATUS_LABELS_MAP[order.status] || order.status}
+        </span>
+      </div>
+      <div style={{ marginBottom: "4px" }}>Total: <strong>{formatPrice(order.total)}</strong></div>
+      {order.method === 'delivery' && order.location_name && (
+        <div style={{ fontSize: "12px", marginBottom: "4px" }}>Delivery to: {order.location_name}</div>
+      )}
+      <div style={{ fontSize: "12px", marginBottom: "8px", color: order.paid ? "#065F46" : "#92400E" }}>
+        {order.paid ? "Paid" : "Awaiting payment"}
+      </div>
+      <button
+        className="btn"
+        style={{ fontSize: "12px", padding: "6px 12px" }}
+        onClick={() => { setSelectedOrder(order); setCurrentView("track"); }}
+      >
+        View Full Tracking
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AI Chat Bubble — floating bottom-left (does not collide with TikTok bottom-right)
+// ---------------------------------------------------------------------------
+function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder }) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState([]); // { role, content, products?, order?, not_available?, requested_item? }
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  // "Tell the seller" form — single shared state, tied to most-recently clicked requested_item
+  const [reqForm, setReqForm] = useState(null); // null | { item, name, phone, submitted, err }
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (open && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, open, loading, reqForm]);
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  const send = async () => {
+    const msg = input.trim();
+    if (!msg || loading) return;
+    setInput('');
+    setError(null);
+
+    // Build history from current session (last 10 turns, roles only)
+    const history = messages
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .slice(-10)
+      .map(m => ({ role: m.role, content: m.content }));
+
+    setMessages(prev => [...prev, { role: 'user', content: msg }]);
+    setLoading(true);
+    try {
+      const res = await api.postAssistant({ message: msg, history });
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: res.reply,
+        products: res.products || [],
+        order: res.order || null,
+        not_available: !!res.not_available,
+        requested_item: res.requested_item || null,
+      }]);
+    } catch (err) {
+      // Never blank the panel on failure
+      setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitRequest = async () => {
+    if (!reqForm.name.trim() && !reqForm.phone.trim()) {
+      setReqForm(f => ({ ...f, err: 'Please provide your name or phone number.' }));
+      return;
+    }
+    setReqForm(f => ({ ...f, err: '' }));
+    try {
+      await api.postProductRequest({
+        requested_text: reqForm.item,
+        customer_name: reqForm.name.trim() || null,
+        customer_phone: reqForm.phone.trim() || null,
+      });
+      setReqForm(f => ({ ...f, submitted: true }));
+    } catch (err) {
+      setReqForm(f => ({ ...f, err: err.message || 'Failed to send. Please try again.' }));
+    }
+  };
+
+  return (
+    <>
+      {open && (
+        <div className="ai-panel" role="dialog" aria-label="Shopping assistant">
+          {/* Header */}
+          <div className="ai-panel-header">
+            <div>
+              <div style={{ fontWeight: "bold", fontSize: "15px" }}>EverythingBida Assistant</div>
+              <div style={{ fontSize: "12px", opacity: 0.85 }}>Ask about products, delivery, or your order</div>
+            </div>
+            <button className="ai-panel-close" onClick={() => setOpen(false)} aria-label="Close chat">×</button>
+          </div>
+
+          {/* Messages */}
+          <div className="ai-messages" aria-live="polite">
+            {messages.length === 0 && (
+              <div style={{ textAlign: "center", color: "#92400E", fontSize: "14px", padding: "24px 10px" }}>
+                <div style={{ fontSize: "34px", marginBottom: "8px" }}>👋</div>
+                <div style={{ fontWeight: "600", marginBottom: "6px" }}>Hi! I'm the EverythingBida assistant.</div>
+                <div>Ask me about products, delivery fees, or your order.</div>
+              </div>
+            )}
+
+            {messages.map((m, i) => (
+              <div key={i}>
+                {m.role === 'user' ? (
+                  <div className="ai-msg-user">
+                    <span>{m.content}</span>
+                  </div>
+                ) : (
+                  <div className="ai-msg-bot">
+                    <span className="ai-bubble-text">{m.content}</span>
+
+                    {/* Real product cards — only IDs verified server-side */}
+                    {m.products?.length > 0 && (
+                      <div className="ai-product-row">
+                        {m.products.map(p => (
+                          <ChatProductCard key={p.id} product={p} addToCart={addToCart} />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Order summary — status from DB, never from model */}
+                    {m.order && (
+                      <ChatOrderCard order={m.order} setCurrentView={setCurrentView} setSelectedOrder={setSelectedOrder} />
+                    )}
+
+                    {/* Not-available: "Tell the seller you want this" */}
+                    {m.not_available && m.requested_item && (
+                      <button
+                        className="ai-tell-btn"
+                        onClick={() => setReqForm({ item: m.requested_item, name: '', phone: '', submitted: false, err: '' })}
+                      >
+                        Tell the seller you want this
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Request form */}
+            {reqForm && (
+              <div className="ai-req-form">
+                {reqForm.submitted ? (
+                  <div className="ai-req-confirm">
+                    ✅ Request sent! We'll let the seller know you want: <em>{reqForm.item}</em>
+                    <div>
+                      <button onClick={() => setReqForm(null)} style={{ marginTop: "8px", background: "none", border: "none", color: "#065F46", cursor: "pointer", fontSize: "13px", textDecoration: "underline" }}>
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: "13px", fontWeight: "600", color: "#78350F", marginBottom: "10px" }}>
+                      Let the seller know you want: <em>{reqForm.item}</em>
+                    </div>
+                    <input
+                      className="input"
+                      placeholder="Your name (optional)"
+                      value={reqForm.name}
+                      onChange={e => setReqForm(f => ({ ...f, name: e.target.value }))}
+                      style={{ marginBottom: "8px" }}
+                    />
+                    <input
+                      className="input"
+                      placeholder="Phone number (optional)"
+                      value={reqForm.phone}
+                      onChange={e => setReqForm(f => ({ ...f, phone: e.target.value }))}
+                      style={{ marginBottom: "8px" }}
+                    />
+                    <div style={{ fontSize: "12px", color: "#92400E", marginBottom: "10px" }}>
+                      At least one field is needed so the seller can reach you.
+                    </div>
+                    {reqForm.err && <span className="inline-error" role="alert">{reqForm.err}</span>}
+                    <div className="flex gap-10">
+                      <button className="btn" style={{ flex: 1, fontSize: "13px", padding: "9px" }} onClick={submitRequest}>
+                        Send Request
+                      </button>
+                      <button className="btn btn-outline" style={{ fontSize: "13px", padding: "9px" }} onClick={() => setReqForm(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {loading && <div className="ai-loading">Thinking...</div>}
+            {error && <div className="ai-error" role="alert">{error}</div>}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="ai-input-area">
+            <input
+              ref={inputRef}
+              className="ai-input"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+              placeholder="Ask me anything..."
+              maxLength={500}
+              disabled={loading}
+              aria-label="Message to assistant"
+            />
+            <button
+              className="ai-send-btn"
+              onClick={send}
+              disabled={loading || !input.trim()}
+              aria-label="Send message"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating bubble — bottom-left, away from TikTok (bottom-right) */}
+      <button
+        className="ai-bubble-btn"
+        onClick={() => setOpen(o => !o)}
+        aria-label={open ? "Close assistant" : "Open shopping assistant"}
+        title="Ask our AI assistant"
+      >
+        {open ? '✕' : '🛍️'}
+      </button>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Admin: Product Requests queue — demand signal for what to stock next
+// ---------------------------------------------------------------------------
+const REQ_STATUS_LABELS = { pending: 'Pending', reviewed: 'Reviewed', stocked: 'Stocked', declined: 'Declined' };
+const REQ_STATUSES = ['pending', 'reviewed', 'stocked', 'declined'];
+
+function RequestsView({ onCountChange }) {
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState(null);
+  const [updating, setUpdating] = useState(null); // id being updated
+
+  const load = useCallback(async () => {
+    try {
+      const data = await api.getAdminProductRequests();
+      setRequests(data);
+      onCountChange(data.filter(r => r.status === 'pending').length);
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message || 'Failed to load requests' });
+    } finally {
+      setLoading(false);
+    }
+  }, [onCountChange]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleStatus = async (id, status) => {
+    setUpdating(id);
+    try {
+      const updated = await api.putProductRequestStatus(id, status);
+      setRequests(prev => prev.map(r => r.id === id ? updated : r));
+      onCountChange(prev => {
+        // Recalculate from updated list
+        return requests.map(r => r.id === id ? updated : r).filter(r => r.status === 'pending').length;
+      });
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message || 'Update failed' });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const pendingCount = requests.filter(r => r.status === 'pending').length;
+
+  return (
+    <>
+      <InlineMsg msg={msg} onClose={() => setMsg(null)} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
+        <h2 style={{ fontSize: "22px", fontWeight: "bold", color: "#78350F" }}>
+          📥 Product Requests
+          {pendingCount > 0 && <span className="pending-badge" style={{ marginLeft: "10px" }}>{pendingCount} pending</span>}
+        </h2>
+        <p style={{ color: "#92400E", fontSize: "13px" }}>Customers asked for items we don't stock — your demand signal.</p>
+      </div>
+
+      {loading ? (
+        <div style={{ color: "#92400E", textAlign: "center", padding: "40px" }}>Loading...</div>
+      ) : requests.length === 0 ? (
+        <div className="card" style={{ textAlign: "center", color: "#92400E", padding: "40px" }}>
+          <div style={{ fontSize: "36px", marginBottom: "10px" }}>📭</div>
+          No product requests yet. When customers ask for items we don't stock, they appear here.
+        </div>
+      ) : (
+        requests.map(r => (
+          <div key={r.id} className="req-card">
+            <div className="req-text">"{r.requested_text}"</div>
+            {r.customer_name && <div className="req-meta">👤 {r.customer_name}</div>}
+            {r.customer_phone && <div className="req-meta">📞 {r.customer_phone}</div>}
+            <div className="req-date">{fmtDate(r.created_at)}</div>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+              <span className={`status-badge req-status-${r.status}`}>{REQ_STATUS_LABELS[r.status]}</span>
+              <select
+                value={r.status}
+                onChange={e => handleStatus(r.id, e.target.value)}
+                disabled={updating === r.id}
+                className="status-select-sm"
+                aria-label={`Change status for request ${r.id}`}
+              >
+                {REQ_STATUSES.map(s => <option key={s} value={s}>{REQ_STATUS_LABELS[s]}</option>)}
+              </select>
+              {updating === r.id && <span style={{ fontSize: "12px", color: "#92400E" }}>Saving...</span>}
+            </div>
+          </div>
+        ))
+      )}
     </>
   );
 }
