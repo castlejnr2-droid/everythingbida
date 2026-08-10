@@ -6,5 +6,9 @@
       "destination": "https://everythingbida.com/$1",
       "permanent": true
     }
+  ],
+  "rewrites": [
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/admin/", "destination": "/index.html" }
   ]
 }

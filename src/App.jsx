@@ -87,10 +87,12 @@ const styles = `
   .header-inner { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
   .logo { display: flex; align-items: center; gap: 10px; }
   .logo-btn { background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 4px 0; min-height: 44px; text-align: left; }
-  .logo-icon { width: 54px; height: 54px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-  .logo-icon img { width: 54px; height: 54px; object-fit: contain; display: block; }
-  @media (max-width: 360px) { .logo-icon { width: 42px; height: 42px; } .logo-icon img { width: 42px; height: 42px; } .logo-wordmark h1 { font-size: 17px !important; } .logo-wordmark p { display: none; } }
+  .logo-icon { width: 72px; height: 72px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .logo-icon img { width: 72px; height: 72px; object-fit: contain; display: block; }
+  @media (max-width: 480px) { .logo-wordmark { display: none; } .logo-icon { width: 60px; height: 60px; } .logo-icon img { width: 60px; height: 60px; } }
   .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav-label-short { display: none; }
+  @media (max-width: 480px) { .header-inner { flex-wrap: nowrap; gap: 6px; } .nav { gap: 4px; flex-wrap: nowrap; } .nav-btn { padding: 6px 10px; font-size: 12px; min-height: 40px; } .nav-icon { display: none; } .nav-label-full { display: none; } .nav-label-short { display: inline; } }
   .nav-btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 500; font-size: 14px; background: #FEF3C7; color: #92400E; transition: all 0.2s; min-height: 44px; }
   .nav-btn:hover { background: #FDE68A; }
   .nav-btn.active { background: #B45309; color: white; }
@@ -160,8 +162,12 @@ const styles = `
   .admin-product-img { width: 65px; height: 65px; border-radius: 10px; background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; background-color: #FEF3C7; flex-shrink: 0; }
   .admin-product-info { flex: 1; min-width: 120px; }
   @keyframes floaty { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
-  .tiktok-float { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: #010101; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 8px 25px rgba(0,0,0,0.4); z-index: 150; animation: floaty 3s ease-in-out infinite; }
+  .tiktok-float { position: fixed; bottom: 30px; right: 20px; width: 60px; height: 60px; background: #010101; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 8px 25px rgba(0,0,0,0.4); z-index: 147; animation: floaty 3s ease-in-out infinite; }
   .tiktok-float:hover { transform: scale(1.15) translateY(-4px); animation: none; }
+  /* Floating cart button — bottom-right, above TikTok, always visible for customers */
+  .cart-float { position: fixed; bottom: 102px; right: 20px; width: 52px; height: 52px; background: linear-gradient(135deg, #B45309, #78350F); border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(180,83,9,0.4); z-index: 148; font-size: 22px; transition: transform 0.2s; }
+  .cart-float:hover { transform: scale(1.1); }
+  .cart-float-badge { position: absolute; top: -4px; right: -4px; background: #DC2626; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center; border: 2px solid white; }
   select.input { appearance: auto; }
   textarea.input { resize: vertical; }
   .flex { display: flex; }
@@ -264,13 +270,13 @@ const styles = `
   .admin-toast { border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
   .admin-toast.success { background: #D1FAE5; border: 2px solid #6EE7B7; color: #065F46; }
   .admin-toast.error { background: #FEE2E2; border: 2px solid #FCA5A5; color: #DC2626; }
-  /* --- EB AI Chat Bubble (bottom-LEFT, pill, logo+label — does not collide with TikTok bottom-right) --- */
-  .ai-bubble-btn { position: fixed; bottom: 30px; left: 20px; height: 44px; padding: 0 14px; background: linear-gradient(135deg, #B45309, #78350F); border-radius: 22px; border: none; cursor: pointer; display: flex; align-items: center; gap: 7px; box-shadow: 0 4px 20px rgba(180,83,9,0.4); z-index: 148; transition: transform 0.2s; color: white; }
+  /* --- EB AI Chat Bubble (bottom-LEFT, pill, logo+label — does not collide with TikTok/cart bottom-right) --- */
+  .ai-bubble-btn { position: fixed; bottom: 30px; left: 20px; height: 44px; padding: 0 14px; background: linear-gradient(135deg, #B45309, #78350F); border-radius: 22px; border: none; cursor: pointer; display: flex; align-items: center; gap: 7px; box-shadow: 0 4px 20px rgba(180,83,9,0.4); z-index: 149; transition: transform 0.2s; color: white; }
   .ai-bubble-btn:hover { transform: scale(1.05); }
   .ai-bubble-icon { width: 28px; height: 28px; object-fit: contain; border-radius: 5px; flex-shrink: 0; }
   .ai-bubble-label { font-size: 13px; font-weight: bold; color: white; letter-spacing: 0.3px; }
   /* Panel: opens above bubble, left-anchored, max 360px wide, max 70vh tall */
-  .ai-panel { position: fixed; bottom: 96px; left: 20px; width: calc(100vw - 40px); max-width: 360px; max-height: 70vh; background: white; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; z-index: 148; overflow: hidden; }
+  .ai-panel { position: fixed; bottom: 96px; left: 20px; width: calc(100vw - 40px); max-width: 360px; max-height: 70vh; background: white; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; z-index: 150; overflow: hidden; }
   .ai-panel-header { background: linear-gradient(135deg, #B45309, #78350F); padding: 14px 18px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
   .ai-panel-close { background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1; padding: 2px 8px; }
   .ai-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
@@ -310,6 +316,9 @@ const styles = `
 
 
 
+// /admin path detection — checked once at module load (pathname never changes without navigation)
+const isAdminPath = window.location.pathname === '/admin' || window.location.pathname === '/admin/';
+
 export default function App() {
   // Deep-link: ?order=EB######## navigates straight to track view
   const [deepLinkOrderId] = useState(() => {
@@ -322,9 +331,13 @@ export default function App() {
   const [locations, setLocations] = useState([]);
   const [bank, setBank] = useState({ name: '', acc_num: '', acc_name: '' });
   const [isAdmin, setIsAdmin] = useState(!!api.getToken());
-  const [currentView, setCurrentView] = useState(deepLinkOrderId ? "track" : "shop");
+  const [currentView, setCurrentView] = useState(
+    (isAdminPath && api.getToken()) ? "admin" :
+    (deepLinkOrderId ? "track" : "shop")
+  );
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  // Auto-open login modal when user navigates directly to /admin and is not yet logged in
+  const [showLoginModal, setShowLoginModal] = useState(isAdminPath && !api.getToken());
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successOrder, setSuccessOrder] = useState(null);
   const [loginError, setLoginError] = useState("");
@@ -392,6 +405,10 @@ export default function App() {
     api.clearToken();
     setIsAdmin(false);
     setCurrentView("shop");
+    // Replace /admin in history so the back button doesn't re-expose it after logout
+    if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
+      history.replaceState(null, '', '/');
+    }
     setApprovedVendors([]);
     setPendingVendorCount(0);
     setPendingRequestCount(0);
@@ -443,7 +460,7 @@ export default function App() {
     <div className="eb-wrap">
       <style>{styles}</style>
       <Header isAdmin={isAdmin} currentView={currentView} setCurrentView={setCurrentView}
-        setShowLoginModal={setShowLoginModal} handleLogout={handleLogout} cartCount={cart.length}
+        handleLogout={handleLogout}
         pendingVendorCount={pendingVendorCount} pendingRequestCount={pendingRequestCount} />
       <main className="main">
         {currentView === "shop" && <ShopView products={products} addToCart={addToCart} setCurrentView={setCurrentView} categories={categories} />}
@@ -462,19 +479,20 @@ export default function App() {
       <footer className="eb-footer">
         <p style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "8px" }}>© 2026 EverythingBida</p>
       </footer>
-      {cart.length > 0 && currentView === "shop" && (
-        <div onClick={() => setCurrentView("cart")} style={{
-          position: "fixed", bottom: "110px", right: "20px", zIndex: 149,
-          background: "linear-gradient(135deg, #B45309, #78350F)",
-          color: "white", borderRadius: "30px", padding: "14px 22px",
-          display: "flex", alignItems: "center", gap: "10px",
-          cursor: "pointer", boxShadow: "0 8px 25px rgba(217,119,6,0.5)",
-          animation: "floaty 3s ease-in-out infinite",
-          fontWeight: "bold", fontSize: "15px"
-        }}>
-          <span style={{ background: "rgba(255,255,255,0.25)", borderRadius: "50%", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", fontWeight: "bold" }}>{cart.length}</span>
-          🛒 Proceed to Order
-        </div>
+      {/* Floating cart button — always visible for customers, right-side stack above TikTok */}
+      {!isAdmin && (
+        <button
+          className="cart-float"
+          onClick={() => setCurrentView("cart")}
+          aria-label={`Shopping cart${cart.length > 0 ? `, ${cart.length} item${cart.length !== 1 ? 's' : ''}` : ', empty'}`}
+          title="View cart"
+          style={{ position: 'relative' }}
+        >
+          🛒
+          {cart.length > 0 && (
+            <span className="cart-float-badge">{cart.length}</span>
+          )}
+        </button>
       )}
       <AIChatBubble addToCart={addToCart} setCurrentView={setCurrentView} setSelectedOrder={setSelectedOrder} />
       <div className="tiktok-float" onClick={() => window.open("https://tiktok.com/@everythingbida", "_blank")} title="Follow us on TikTok">
@@ -488,25 +506,24 @@ export default function App() {
   );
 }
 
-function Header({ isAdmin, currentView, setCurrentView, setShowLoginModal, handleLogout, cartCount, pendingVendorCount, pendingRequestCount }) {
+function Header({ isAdmin, currentView, setCurrentView, handleLogout, pendingVendorCount, pendingRequestCount }) {
   const navItems = isAdmin
     ? [
-        { id: "shop", label: "Shop", icon: "🏪" },
-        { id: "admin", label: "Products", icon: "📦" },
-        { id: "categories", label: "Categories", icon: "🏷️" },
-        { id: "locations", label: "Locations", icon: "📍" },
-        { id: "sellers", label: "Sellers", icon: "🏬", badge: pendingVendorCount > 0 ? pendingVendorCount : null },
-        { id: "orders", label: "Orders", icon: "📋" },
-        { id: "requests", label: "Requests", icon: "📥", badge: pendingRequestCount > 0 ? pendingRequestCount : null },
-        { id: "bank", label: "Bank", icon: "🏦" },
-        { id: "chat", label: "Messages", icon: "💬" },
+        { id: "shop", label: "Shop", icon: "🏪", shortLabel: "Shop" },
+        { id: "admin", label: "Products", icon: "📦", shortLabel: "Products" },
+        { id: "categories", label: "Categories", icon: "🏷️", shortLabel: "Cats" },
+        { id: "locations", label: "Locations", icon: "📍", shortLabel: "Locs" },
+        { id: "sellers", label: "Sellers", icon: "🏬", shortLabel: "Sellers", badge: pendingVendorCount > 0 ? pendingVendorCount : null },
+        { id: "orders", label: "Orders", icon: "📋", shortLabel: "Orders" },
+        { id: "requests", label: "Requests", icon: "📥", shortLabel: "Reqs", badge: pendingRequestCount > 0 ? pendingRequestCount : null },
+        { id: "bank", label: "Bank", icon: "🏦", shortLabel: "Bank" },
+        { id: "chat", label: "Messages", icon: "💬", shortLabel: "Msgs" },
       ]
     : [
-        { id: "shop", label: "Shop", icon: "🏪" },
-        { id: "cart", label: `Cart${cartCount > 0 ? ` (${cartCount})` : ""}`, icon: "🛒" },
-        { id: "track", label: "Track", icon: "📦" },
-        { id: "chat", label: "Chat", icon: "💬" },
-        { id: "become-seller", label: "Become a Seller", icon: "🏬" },
+        { id: "shop", label: "Shop", icon: "🏪", shortLabel: "Shop" },
+        { id: "track", label: "Track", icon: "📦", shortLabel: "Track" },
+        { id: "chat", label: "Chat", icon: "💬", shortLabel: "Chat" },
+        { id: "become-seller", label: "Become a Seller", icon: "🏬", shortLabel: "Sell" },
       ];
   return (
     <header className="header">
@@ -525,13 +542,13 @@ function Header({ isAdmin, currentView, setCurrentView, setShowLoginModal, handl
         <nav className="nav">
           {navItems.map(item => (
             <button key={item.id} className={`nav-btn ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
-              {item.icon} {item.label}
+              <span className="nav-icon">{item.icon}</span>{' '}
+              <span className="nav-label-full">{item.label}</span>
+              {item.shortLabel && <span className="nav-label-short">{item.shortLabel}</span>}
               {item.badge != null && <span className="pending-badge">{item.badge}</span>}
             </button>
           ))}
-          {isAdmin
-            ? <button className="nav-btn" onClick={handleLogout}>🚪 Logout</button>
-            : <button className="nav-btn" onClick={() => setShowLoginModal(true)}>🔐 Admin</button>}
+          {isAdmin && <button className="nav-btn" onClick={handleLogout}><span className="nav-icon">🚪</span>{' '}<span className="nav-label-full">Logout</span><span className="nav-label-short">Out</span></button>}
         </nav>
       </div>
     </header>
@@ -1126,7 +1143,7 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { setToast({ type: 'error', text: 'Image too large — max 5 MB' }); return; }
+    if (file.size > 5 * 1024 * 1024) { setToast({ type: 'error', text: 'Image too large, max 5 MB' }); return; }
     setUploading(true);
     const reader = new FileReader();
     reader.onloadend = async () => {
@@ -1767,7 +1784,7 @@ function ChatView({ isAdmin, selectedOrder, setSelectedOrder }) {
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { setChatError('Image too large — max 5 MB'); return; }
+    if (file.size > 5 * 1024 * 1024) { setChatError('Image too large, max 5 MB'); return; }
     const reader = new FileReader();
     reader.onloadend = () => {
       setImgPreview(reader.result);
@@ -2575,7 +2592,7 @@ function RequestsView({ onCountChange }) {
           📥 Product Requests
           {pendingCount > 0 && <span className="pending-badge" style={{ marginLeft: "10px" }}>{pendingCount} pending</span>}
         </h2>
-        <p style={{ color: "#92400E", fontSize: "13px" }}>Customers asked for items we don't stock — your demand signal.</p>
+        <p style={{ color: "#92400E", fontSize: "13px" }}>Customers asked for items we don't stock. Your demand signal.</p>
       </div>
 
       {loading ? (
