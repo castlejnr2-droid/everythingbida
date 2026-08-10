@@ -220,7 +220,11 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [x] Other limiters (admin login, vendor images, vendor applications, product-requests) remain in-process — migration is TRIVIAL: same atomic-upsert pattern, add prefixed keys like "vendor-image:ip:{ip}:{hour}" to rate_counters. No architectural work required.
 - [x] MULTI-INSTANCE SETTLED: Railway runs multiple containers; the Phase 9 "single container" assumption was wrong. Per-IP and daily caps now correct. Other limiters acknowledged as per-container, acceptable at current scale.
 - [x] Operator runbook updated with go-live sequence in EVERYTHINGBIDA_PLAN.md
-- Backend: ba52f73
+- [x] LIVE VERIFIED: shared-cap proof — 429 persists via Postgres counters, not per-container; NAT observation documented (STEP 1)
+- [x] LIVE VERIFIED: window expiry — stale past-hour row with count=100 does NOT block new hour; fresh key starts at 1 (STEP 2)
+- [x] LIVE VERIFIED: concurrent race — 20 simultaneous upserts on fresh key → count=20, 1 row, 0 errors (STEP 3)
+- [x] LIVE VERIFIED: all 4 health states observed live (stub→live→degraded→stub); invalid key → 6 requests all returned useful stub replies; key never logged (STEP 4)
+- Backend: ba52f73 | Test scripts: scripts/test_window_expiry.mjs, scripts/test_concurrent_race.mjs, scripts/check_rate_counters.mjs
 
 ---
 
@@ -473,9 +477,50 @@ Added both items to operator runbook in EVERYTHINGBIDA_PLAN.md.
 **Other limiters — migration assessment:**
 Admin login (auth.js), vendor images (images.js), vendor applications (routes/vendors.js), product-requests (assistant.js) all use in-process Maps. Migrating any of them is TRIVIAL: same atomic-upsert pattern, different key prefixes. Zero architectural work. Will migrate in a future phase if Railway scales up and per-container drift becomes observable.
 
-**Step 3 verify plan (requires Railway deploy + funded account test):**
-- Shared-cap proof: hammer POST /api/assistant from one IP past 15 — confirm 429 persists on subsequent requests regardless of which container Railway routes to (previously each container had its own counter that reset on LB rotation).
-- Degradation proof: set deliberate INVALID ANTHROPIC_API_KEY on Railway → /health shows "live" → send 5 requests → /health flips to "degraded" → assistant returns useful stub replies with no customer-visible error → remove invalid key → /health returns "stub". Three health states observable without a funded account.
+**LIVE TEST RESULTS (Phase 10B-verify, 2026-08-10):**
+
+STEP 1 — Shared cap proof:
+- 31 sequential requests fired from this machine against POST /api/assistant
+- Rate_counters DB query after burst:
+  - `assistant:ip:46.151.193.241:2026-08-10T01` count=19 (blocked at >15)
+  - `assistant:ip:46.151.193.242:2026-08-10T01` count=22 (blocked at >15)
+  - `assistant:global:2026-08-10` count=32 (only increments when IP check passes)
+- Requests [1-29] HTTP 200, [30] HTTP 429 "Too many messages this hour. Please wait a while and try again.", [31] HTTP 429
+- 10 more persistence requests [32-41]: [32-33] 429, [34] 200 (NAT rotated to .241 which was still at 14), [35-41] all 429
+- NAT observation: ISP NAT pool rotates my outbound IP between .241 and .242. This is NOT a shared-counter bug — both IPs have separate correct Postgres rows that are NOT per-container (single authoritative row in DB, no container-local reset). Request 34 was the last allowed hit on .241 before it hit 15. After that, both IPs permanently 429'd for the remainder of the hour.
+- Key finding: in the old in-memory design, a container restart or LB rotation would silently reset the counter. With Postgres-backed counters, the count persists in DB and survives container rotation.
+
+STEP 2 — Window expiry (railway run node scripts/test_window_expiry.mjs):
+- Inserted past-hour key `assistant:ip:192.0.2.99:2026-08-10T00` with count=100
+- Issued current-hour request using key `assistant:ip:192.0.2.99:2026-08-10T01`
+- Result: fresh row inserted, count=1
+- window_start manipulation: updated stale row's window_start to -2h — no effect on rate logic (window determined by key name, not column)
+- PASS: counter resets at window boundary. No permanent ban. Customer who sent 15 messages in hour T00 is allowed again in T01.
+
+STEP 3 — Concurrent INSERT race (railway run node scripts/test_concurrent_race.mjs):
+- 20 simultaneous upserts on brand-new key `assistant:ip:192.0.2.race:2026-08-10T01` via Promise.allSettled
+- Returned counts: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
+- Final row: count=20, exactly 1 row
+- 0 errors surfaced to callers
+- PASS: ON CONFLICT DO UPDATE serialises simultaneous first-inserts correctly.
+
+STEP 4 — Degradation, all four states:
+(a) /health: {"ok":true,"migrations":3,"assistant":"stub"} — reply: "Yes! We have Quality Beef..." ✓
+(b) Set ANTHROPIC_API_KEY=sk-ant-INVALID-PHASE10B-TEST-KEY-DO-NOT-USE via railway variables, redeployed → /health: {"ok":true,"migrations":3,"assistant":"live"} ✓
+(c) 6 requests with invalid key — ALL returned useful stub reply (stub product card, never error panel):
+  - Requests 1-5: HTTP 200, useful stub reply; /health remained "live" until after req 5
+  - After req 5: /health flipped to "degraded"
+  - Request 6: HTTP 200, useful stub reply; /health: "degraded" ✓
+(d) Railway logs (grep [assistant]):
+  - "[assistant] live failure #1: 401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"},\"request_id\":\"req_011Cdt...\"}"
+  - "[assistant] live failure #2 ... #3 ... #4 ... #5" — same pattern
+  - "[assistant] circuit breaker OPEN after 5 consecutive failures — pausing live calls for 15 min"
+  - "[assistant] circuit breaker open — serving stub response" (request 6)
+  - KEY VALUE NOT LOGGED ✓
+(e) Deleted ANTHROPIC_API_KEY via railway variables delete, redeployed → /health: {"ok":true,"migrations":3,"assistant":"stub"} ✓
+  - Reply still works: "EverythingBida delivers across Bida in 10 to 60 minutes..." ✓
+
+All three health states observed live. Key never printed. Customer never saw an error.
 
 **Syntax check:** `node --check src/routes/assistant.js` + `node --check src/index.js` — both CLEAN.
 
