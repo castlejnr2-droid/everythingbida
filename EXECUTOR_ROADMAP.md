@@ -8,7 +8,7 @@
 ---
 
 ## Current position
-**Phase 9 — Full operator smoke + polish. Phase 8 (shop layout + discovery + purge) COMPLETE.**
+**Phase 10 — AI shopping assistant COMPLETE (STUB MODE). Adversarial live-model tests DEFERRED — hard gate before assistant is production-ready.**
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
 
@@ -179,6 +179,32 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [x] DB final: Orders=3, Messages=10, Images=3 (baseline restored after phase 9 smoke purge)
 - Frontend: bcc39fc (287.80 kB / 83.52 kB gzip) | Backend: 2305298
 - NOTE: Admin flow (login, status walk, chat send) requires operator to verify with their admin password — public API endpoints all pass
+
+### Phase 10 — AI shopping assistant ✅ COMPLETE in STUB MODE (2026-08-10)
+- [x] migration 002: product_requests (id, requested_text, customer_phone, customer_name, status pending|reviewed|stocked|declined, created_at)
+- [x] POST /api/assistant: 15/IP/hr, 1000/day global cap (ASSISTANT_DAILY_CAP env), 60s catalog cache, STUB/LIVE auto-detect from ANTHROPIC_API_KEY presence, server-side product_id filter against real catalog, DB order lookup when track_order_id set, no auto-insert to product_requests (frontend asks first)
+- [x] STUB MODE: word-level catalog match (word >=3 chars from message vs product name/description), order ID detection (EB+8 digits), platform keyword detection (delivery/fee/payment/location/seller etc), not_available path — identical JSON contract to live mode
+- [x] LIVE MODE code ready: claude-haiku-4-5-20251001, buildSystemPrompt with full catalog+locations+rules, parseModelOutput with fence-strip fallback, usage logging — adding ANTHROPIC_API_KEY + redeploy is the ONLY step needed
+- [x] POST /api/product-requests: public, 3/IP/hr, inserts to product_requests
+- [x] GET /api/admin/product-requests: admin-only, newest first
+- [x] PUT /api/admin/product-requests/:id/status: admin-only, allowlist enforced server-side
+- [x] /health now returns assistant:"stub"|"live"
+- [x] @anthropic-ai/sdk installed in backend package.json
+- [x] Frontend: AIChatBubble (bottom-left fixed, z-index=148, below TikTok z=150 and cart FAB z=149); ChatProductCard (server-verified IDs only, add-to-cart working); ChatOrderCard (DB status, tracking link); "Tell the seller you want this" → inline name+phone form → POST /api/product-requests → inline confirmation
+- [x] Frontend: RequestsView admin tab (newest first, status badge + dropdown, pending count badge on nav "Requests" item)
+- [x] 360px layout: TikTok x=[270,330] right, bubble x=[20,76] left, 194px gap — NO OVERLAP; panel bottom=96px above TikTok top=90px — NO VERTICAL OVERLAP
+- [x] Smoke (a): "do you have chicken" → Fresh Chicken card + product_ids=[2] ✓
+- [x] Smoke (b): "do you have rice" → not_available=true, requested_item set, no products invented ✓
+- [x] Smoke (c): product_request id=1 submitted → appears in admin queue, status update → reviewed, invalid status → 400, no-token → 401 ✓
+- [x] Smoke (d): delivery fee question → real location fees from DB (Bida Central ₦500, GRA ₦800, Poly junction ₦300) ✓
+- [x] Smoke (e): EB04850822 → status=delivered from DB; EB99999999 → clear not-found, order=null ✓
+- [x] Smoke (f): DEFERRED — adversarial/prompt-injection tests require live model — HARD GATE before production
+- [x] Smoke (g): rate limit logic verified by unit test (15 allowed, 5+ blocked); live curl unreliable (Railway multi-instance, same parked debt as Phase 6); 400 on >500-char message ✓
+- [x] Smoke (h): 360px geometry verified — no overlaps ✓
+- [x] Smoke (i): regression — 3 products, 6 categories, bank populated, /health migrations:2 ✓
+- Frontend: a264e85 (302.50 kB / 86.66 kB gzip) | Backend: 0a1f715
+- Test data: product_request id=1 (rice, Smoke Test, 08099999999) set to declined (left in DB as first real use)
+- DEFERRED: adversarial tests (6f) are a HARD GATE. Must run before announcing live assistant to customers.
 
 ---
 
