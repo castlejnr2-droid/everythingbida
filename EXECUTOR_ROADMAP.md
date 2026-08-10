@@ -8,7 +8,8 @@
 ---
 
 ## Current position
-**Phase 10 — AI shopping assistant COMPLETE (STUB MODE). Adversarial live-model tests DEFERRED — hard gate before assistant is production-ready.**
+**Phase 10B — Assistant resilience + shared cost caps COMPLETE. Multi-instance question SETTLED.**
+**Next gate: fund Anthropic account → add ANTHROPIC_API_KEY to Railway → redeploy → confirm /health "live" → run deferred adversarial tests → announce.**
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
 
@@ -205,6 +206,21 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - Frontend: a264e85 (302.50 kB / 86.66 kB gzip) | Backend: 0a1f715
 - Test data: product_request id=1 (rice, Smoke Test, 08099999999) set to declined (left in DB as first real use)
 - DEFERRED: adversarial tests (6f) are a HARD GATE. Must run before announcing live assistant to customers.
+
+### Phase 10B — Assistant resilience + shared cost caps ✅ COMPLETE (2026-08-10)
+- [x] Graceful degradation: any live call failure (credit lapse, invalid key, 429, timeout, network error, empty response, unparseable JSON) falls back to stub matcher for that request — customer sees a useful reply, never an error or empty panel
+- [x] Circuit breaker: after 5 consecutive live failures the breaker opens for 15 min, preventing latency burn during outages; half-open probe on cooldown expiry; auto-resets on next live success
+- [x] /health now returns assistant:"live"|"stub"|"degraded" — "degraded" means key present but breaker currently open
+- [x] Migration 003: rate_counters (key TEXT PK, window_start, count) + assistant_token_usage (ts, input_tokens, output_tokens)
+- [x] Per-IP hourly limit (15/hr) moved to Postgres atomic upsert on rate_counters — shared across all Railway containers
+- [x] Global daily cap (DAILY_CAP env, default 1000) moved to Postgres atomic upsert on rate_counters — shared across all Railway containers
+- [x] Token usage recorded per live call into assistant_token_usage (fire-and-forget, never blocks response) — auditable after go-live
+- [x] Rate-check failure mode: fail-open with logged error (DB hiccup never silently kills the assistant for customers)
+- [x] parseModelOutput returns null on JSON parse failure; caller treats null as live failure (falls back to stub + records to circuit breaker)
+- [x] Other limiters (admin login, vendor images, vendor applications, product-requests) remain in-process — migration is TRIVIAL: same atomic-upsert pattern, add prefixed keys like "vendor-image:ip:{ip}:{hour}" to rate_counters. No architectural work required.
+- [x] MULTI-INSTANCE SETTLED: Railway runs multiple containers; the Phase 9 "single container" assumption was wrong. Per-IP and daily caps now correct. Other limiters acknowledged as per-container, acceptable at current scale.
+- [x] Operator runbook updated with go-live sequence in EVERYTHINGBIDA_PLAN.md
+- Backend: ba52f73
 
 ---
 
@@ -424,3 +440,43 @@ Added both items to operator runbook in EVERYTHINGBIDA_PLAN.md.
 - Purge: EB51322951+EB03587465+EB08400316 deleted via railway run; DB restored to Orders=3, Messages=10, Images=3
 
 **Commits:** Frontend bcc39fc (287.80 kB / 83.52 kB gzip). Backend 2305298. Both pushed. /health {ok:true,migrations:1}. Site 200. **Phase 9 COMPLETE. v2 upgrade COMPLETE.**
+
+### 2026-08-10 — Phase 10B: assistant resilience + shared cost caps
+
+**Session recon:** Phase 10 complete (a264e85 / 0a1f715). STUB MODE shipped; in-memory rate limiters acknowledged as per-container debt; adversarial tests deferred as hard gate.
+
+**MULTI-INSTANCE SETTLED:** Railway load-balances across multiple containers. The Phase 9 "single container" note was incorrect. Per-IP and daily cap limiters were multiplied by container count — a real billing exposure once a live API key is added. Fixed by migration 003.
+
+**Step 1 — Migration 003 (migrations/003_rate_counters.sql):**
+- `rate_counters(key TEXT PK, window_start TIMESTAMPTZ, count INT)` — atomic upsert table for all shared rate limits. Key encodes type + subject + time window (e.g. `assistant:ip:1.2.3.4:2026-08-10T14`). Stale windows become unreachable by name when the window rolls — no cleanup job needed.
+- `assistant_token_usage(id SERIAL, ts TIMESTAMPTZ, input_tokens INT, output_tokens INT)` — one row per successful live Anthropic call; auditable cost record.
+
+**Step 2 — Graceful degradation + circuit breaker (src/routes/assistant.js):**
+- `STUB_MODE` still set once at startup from key absence (unchanged).
+- `BREAKER` object tracks `failCount` and `openAt` per container. `breakerIsOpen()` transitions to half-open after 15 min cooldown (allows one probe through).
+- `recordLiveFailure(reason)` increments fail count and opens breaker at threshold 5. Logs the reason string (never the key).
+- `recordLiveSuccess()` resets both fields; logs recovery if breaker had been open.
+- Live call try/catch now: on any throw (network, 401, 429, timeout, empty response, bad JSON) → calls `recordLiveFailure`, then falls back to `stubResponse(trimmedMsg, catalog)`. Customer never sees an error or empty panel.
+- `parseModelOutput` changed to return `null` on JSON parse failure (was: return hardcoded fallback). Null triggers `throw new Error('unparseable model output')` in the route, which hits the catch and falls back to stub.
+- Token usage: `recordTokenUsage(input, output)` is fire-and-forget (`.catch` only) — never blocks the response.
+
+**Step 3 — Shared rate limits (src/routes/assistant.js):**
+- Removed: in-process `makeRateLimiter(15)` for assistant IP + in-process `dailyCalls`/`dailyResetAt` variables.
+- Added: `checkAssistantIP(ip)` — upserts key `assistant:ip:{ip}:{hour}`, returns `count <= 15`. Fail-open on DB error.
+- Added: `checkDailyCap()` — upserts key `assistant:global:{day}`, returns `count <= DAILY_CAP`. Fail-open on DB error.
+- `makeRateLimiter` retained for `checkProductReqIP` (3/hr in-process, unchanged per task scope).
+
+**Step 4 — getAssistantStatus() + /health:**
+- `getAssistantStatus()` exported: returns `'stub'` (no key), `'live'` (key + breaker closed), or `'degraded'` (key present, breaker open).
+- `src/index.js`: import changed from `{ STUB_MODE }` to `{ getAssistantStatus }`; /health uses `getAssistantStatus()`.
+
+**Other limiters — migration assessment:**
+Admin login (auth.js), vendor images (images.js), vendor applications (routes/vendors.js), product-requests (assistant.js) all use in-process Maps. Migrating any of them is TRIVIAL: same atomic-upsert pattern, different key prefixes. Zero architectural work. Will migrate in a future phase if Railway scales up and per-container drift becomes observable.
+
+**Step 3 verify plan (requires Railway deploy + funded account test):**
+- Shared-cap proof: hammer POST /api/assistant from one IP past 15 — confirm 429 persists on subsequent requests regardless of which container Railway routes to (previously each container had its own counter that reset on LB rotation).
+- Degradation proof: set deliberate INVALID ANTHROPIC_API_KEY on Railway → /health shows "live" → send 5 requests → /health flips to "degraded" → assistant returns useful stub replies with no customer-visible error → remove invalid key → /health returns "stub". Three health states observable without a funded account.
+
+**Syntax check:** `node --check src/routes/assistant.js` + `node --check src/index.js` — both CLEAN.
+
+**Backend commit: ba52f73. STOP — going live requires a funded account + deferred adversarial tests.**
