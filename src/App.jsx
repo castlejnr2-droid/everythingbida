@@ -87,9 +87,9 @@ const styles = `
   .header-inner { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
   .logo { display: flex; align-items: center; gap: 10px; }
   .logo-btn { background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 4px 0; min-height: 44px; text-align: left; }
-  .logo-icon { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-  .logo-icon img { width: 36px; height: 36px; object-fit: contain; display: block; }
-  @media (max-width: 360px) { .logo-icon { width: 28px; height: 28px; } .logo-icon img { width: 28px; height: 28px; } .logo-wordmark h1 { font-size: 17px !important; } .logo-wordmark p { display: none; } }
+  .logo-icon { width: 54px; height: 54px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .logo-icon img { width: 54px; height: 54px; object-fit: contain; display: block; }
+  @media (max-width: 360px) { .logo-icon { width: 42px; height: 42px; } .logo-icon img { width: 42px; height: 42px; } .logo-wordmark h1 { font-size: 17px !important; } .logo-wordmark p { display: none; } }
   .nav { display: flex; gap: 8px; flex-wrap: wrap; }
   .nav-btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 500; font-size: 14px; background: #FEF3C7; color: #92400E; transition: all 0.2s; min-height: 44px; }
   .nav-btn:hover { background: #FDE68A; }
@@ -267,7 +267,7 @@ const styles = `
   /* --- EB AI Chat Bubble (bottom-LEFT, pill, logo+label — does not collide with TikTok bottom-right) --- */
   .ai-bubble-btn { position: fixed; bottom: 30px; left: 20px; height: 44px; padding: 0 14px; background: linear-gradient(135deg, #B45309, #78350F); border-radius: 22px; border: none; cursor: pointer; display: flex; align-items: center; gap: 7px; box-shadow: 0 4px 20px rgba(180,83,9,0.4); z-index: 148; transition: transform 0.2s; color: white; }
   .ai-bubble-btn:hover { transform: scale(1.05); }
-  .ai-bubble-icon { width: 24px; height: 24px; object-fit: contain; border-radius: 5px; flex-shrink: 0; }
+  .ai-bubble-icon { width: 28px; height: 28px; object-fit: contain; border-radius: 5px; flex-shrink: 0; }
   .ai-bubble-label { font-size: 13px; font-weight: bold; color: white; letter-spacing: 0.3px; }
   /* Panel: opens above bubble, left-anchored, max 360px wide, max 70vh tall */
   .ai-panel { position: fixed; bottom: 96px; left: 20px; width: calc(100vw - 40px); max-width: 360px; max-height: 70vh; background: white; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; z-index: 148; overflow: hidden; }
@@ -2270,6 +2270,9 @@ function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Track whether backend is serving live or stub responses — null until first reply received.
+  // Automatically switches copy to confident phrasing when ANTHROPIC_API_KEY is added and redeployed.
+  const [assistantMode, setAssistantMode] = useState(null); // null | 'live' | 'stub'
   // "Tell the seller" form — single shared state, tied to most-recently clicked requested_item
   const [reqForm, setReqForm] = useState(null); // null | { item, name, phone, submitted, err }
   const messagesEndRef = useRef(null);
@@ -2301,6 +2304,7 @@ function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder }) {
     setLoading(true);
     try {
       const res = await api.postAssistant({ message: msg, history });
+      if (res.assistant_mode) setAssistantMode(res.assistant_mode);
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: res.reply,
@@ -2342,10 +2346,14 @@ function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder }) {
           {/* Header */}
           <div className="ai-panel-header">
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <img src="/logo.png" alt="EB AI" style={{ width: "28px", height: "28px", objectFit: "contain", borderRadius: "6px", flexShrink: 0 }} />
+              <img src="/logo.png" alt="EB AI" style={{ width: "32px", height: "32px", objectFit: "contain", borderRadius: "6px", flexShrink: 0 }} />
               <div>
                 <div style={{ fontWeight: "bold", fontSize: "15px" }}>EB AI</div>
-                <div style={{ fontSize: "12px", opacity: 0.85 }}>Ask me what you need. I'll find it and you can add it to your cart in one tap.</div>
+                <div style={{ fontSize: "12px", opacity: 0.85 }}>
+                  {assistantMode === 'live'
+                    ? "Ask me what you need. I'll find it and you can add it to your cart in one tap."
+                    : "I can help you find products by name and check your order status."}
+                </div>
               </div>
             </div>
             <button className="ai-panel-close" onClick={() => setOpen(false)} aria-label="Close chat">×</button>
@@ -2355,9 +2363,13 @@ function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder }) {
           <div className="ai-messages" aria-live="polite">
             {messages.length === 0 && (
               <div style={{ textAlign: "center", color: "#92400E", fontSize: "14px", padding: "20px 10px" }}>
-                <img src="/logo.png" alt="EB AI" style={{ width: "52px", height: "52px", objectFit: "contain", marginBottom: "10px" }} />
+                <img src="/logo.png" alt="EB AI" style={{ width: "60px", height: "60px", objectFit: "contain", marginBottom: "10px" }} />
                 <div style={{ fontWeight: "600", marginBottom: "6px" }}>Hi! I'm EB AI.</div>
-                <div style={{ marginBottom: "14px", fontSize: "13px" }}>Ask me what you need. I'll find it and you can add it to your cart in one tap.</div>
+                <div style={{ marginBottom: "14px", fontSize: "13px" }}>
+                  {assistantMode === 'live'
+                    ? "Ask me what you need. I'll find it and you can add it to your cart in one tap."
+                    : "I can help you find products by name and check your order status."}
+                </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "7px", textAlign: "left" }}>
                   {["Do you have fresh chicken?", "How much is quality beef per kg?", "What's the delivery fee to Bida Central?"].map(prompt => (
                     <button
@@ -2381,7 +2393,7 @@ function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder }) {
                 ) : (
                   <div className="ai-msg-bot">
                     <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "3px" }}>
-                      <img src="/logo.png" alt="" aria-hidden="true" style={{ width: "14px", height: "14px", objectFit: "contain", borderRadius: "3px" }} />
+                      <img src="/logo.png" alt="" aria-hidden="true" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "3px" }} />
                       <span style={{ fontSize: "11px", color: "#92400E", fontWeight: "600" }}>EB AI</span>
                     </div>
                     <span className="ai-bubble-text">{m.content}</span>

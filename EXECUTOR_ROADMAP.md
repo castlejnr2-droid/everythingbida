@@ -8,8 +8,9 @@
 ---
 
 ## Current position
-**Phase 11 — Brand identity COMPLETE (2026-08-10).**
-Logo, favicon set, header logo, EB AI branding, email logo all shipped. Frontend 06bcd9a. Backend dc13ecf.
+**Phase 11B — Logo sizing + honest stub copy COMPLETE (2026-08-10).**
+Header logo 36→54px desktop, 28→42px at 360px. EB AI bubble icon 24→28px. Panel header logo 28→32px. Bot avatar 14→18px. Empty-state logo 52→60px.
+Stub-mode reply no longer asserts certainty ("Yes! We have X available") — replaced with hedged "Here's what I found matching that — is this what you meant?" Backend adds `assistant_mode` field to every response; frontend auto-selects honest stub copy or confident live copy accordingly. Not-available path and live-mode system prompt untouched. Frontend 79fe5e5. Backend 7091169.
 **Next gate: fund Anthropic account → add ANTHROPIC_API_KEY to Railway → redeploy → confirm /health "live" → run deferred adversarial tests → announce.**
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
