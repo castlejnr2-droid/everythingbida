@@ -9,7 +9,7 @@
 
 ## Current position
 **Phase 11 — Brand identity COMPLETE (2026-08-10).**
-Logo, favicon set, header logo, EB AI branding, email logo all shipped. Frontend commit TBD. Backend commit TBD.
+Logo, favicon set, header logo, EB AI branding, email logo all shipped. Frontend 06bcd9a. Backend dc13ecf.
 **Next gate: fund Anthropic account → add ANTHROPIC_API_KEY to Railway → redeploy → confirm /health "live" → run deferred adversarial tests → announce.**
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
@@ -239,7 +239,7 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [x] Bundle grep: 0 occurrences of any claim that EB AI adds items to cart; correct copy confirmed in built bundle
 - [x] Email logo: `public/logo-email.png` (160x160, white bg, no transparency) hosted at `https://everythingbida.com/logo-email.png`; 120px `<img>` added to both admin alert and customer confirmation templates; alt text set; order details never depend on image rendering
 - [x] Build: `npm run build` clean, 303.94 kB raw / 86.57 kB gzip
-- Frontend commit: TBD | Backend commit: TBD
+- Frontend commit: 06bcd9a | Backend commit: dc13ecf
 
 ---
 
