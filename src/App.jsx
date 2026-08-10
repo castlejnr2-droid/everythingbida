@@ -456,6 +456,8 @@ export default function App() {
     return serverOrder;
   };
 
+  const cartTotal = cart.reduce((sum, i) => sum + i.qty, 0);
+
   return (
     <div className="eb-wrap">
       <style>{styles}</style>
@@ -484,13 +486,13 @@ export default function App() {
         <button
           className="cart-float"
           onClick={() => setCurrentView("cart")}
-          aria-label={`Shopping cart${cart.length > 0 ? `, ${cart.length} item${cart.length !== 1 ? 's' : ''}` : ', empty'}`}
+          aria-label={`Shopping cart${cartTotal > 0 ? `, ${cartTotal} item${cartTotal !== 1 ? 's' : ''}` : ', empty'}`}
           title="View cart"
           style={{ position: 'relative' }}
         >
           🛒
-          {cart.length > 0 && (
-            <span className="cart-float-badge">{cart.length}</span>
+          {cartTotal > 0 && (
+            <span className="cart-float-badge">{cartTotal}</span>
           )}
         </button>
       )}
