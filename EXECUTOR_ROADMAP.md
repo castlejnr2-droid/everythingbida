@@ -8,7 +8,8 @@
 ---
 
 ## Current position
-**Phase 10B — Assistant resilience + shared cost caps COMPLETE. Multi-instance question SETTLED.**
+**Phase 11 — Brand identity COMPLETE (2026-08-10).**
+Logo, favicon set, header logo, EB AI branding, email logo all shipped. Frontend commit TBD. Backend commit TBD.
 **Next gate: fund Anthropic account → add ANTHROPIC_API_KEY to Railway → redeploy → confirm /health "live" → run deferred adversarial tests → announce.**
 
 Production: https://everythingbida.com live on Vercel (external DNS at Namecheap, records unchanged). TLS valid. www→apex 308 redirect active. Netlify code fully retired from repo. bank_settings must be populated by operator via admin panel before going live with payments.
@@ -225,6 +226,20 @@ Production: https://everythingbida.com live on Vercel (external DNS at Namecheap
 - [x] LIVE VERIFIED: concurrent race — 20 simultaneous upserts on fresh key → count=20, 1 row, 0 errors (STEP 3)
 - [x] LIVE VERIFIED: all 4 health states observed live (stub→live→degraded→stub); invalid key → 6 requests all returned useful stub replies; key never logged (STEP 4)
 - Backend: ba52f73 | Test scripts: scripts/test_window_expiry.mjs, scripts/test_concurrent_race.mjs, scripts/check_rate_counters.mjs
+
+### Phase 11 — Brand identity ✅ COMPLETE (2026-08-10)
+- [x] Logo asset: `public/eb logo.png` (539x463 RGBA, transparent corners) — confirmed readable, copied to `public/logo.png` (clean name, no spaces)
+- [x] Favicon set (Pillow): `favicon.ico` (16/32/48 multi-size, square-padded source), `favicon-32.png`, `favicon-192.png`, `favicon-512.png`, `apple-touch-icon.png` (180x180, solid #FEF3C7 bg), `site.webmanifest`
+- [x] `index.html`: Vite placeholder base64 icon replaced; proper `<link rel="icon">`, `<link rel="apple-touch-icon">`, `<link rel="manifest">`, `<meta name="theme-color">` added; `<title>` updated to "EverythingBida — Fresh produce & groceries in Bida"
+- [x] Header logo: 36px logo.png (optically sized to cap height of 22px h1); logo+wordmark wrapped in `<button class="logo-btn">` → `setCurrentView("shop")`; works from all views including all admin tabs; `min-height:44px` touch target; responsive at 360px (28px, tagline hidden)
+- [x] EB AI bubble: restyled from 56px circle to 44px amber pill with 24px logo icon + "EB AI" label; opens to ✕ when panel is open; still bottom-left, clear of TikTok
+- [x] EB AI panel header: logo (28px) + "EB AI" title + accurate subtitle (no false cart-add claims)
+- [x] EB AI empty state: logo (52px), accurate copy, 3 real-catalog example prompts (fresh chicken / quality beef / delivery fee to Bida Central)
+- [x] EB AI bot messages: 14px logo avatar + "EB AI" label above each assistant bubble
+- [x] Bundle grep: 0 occurrences of any claim that EB AI adds items to cart; correct copy confirmed in built bundle
+- [x] Email logo: `public/logo-email.png` (160x160, white bg, no transparency) hosted at `https://everythingbida.com/logo-email.png`; 120px `<img>` added to both admin alert and customer confirmation templates; alt text set; order details never depend on image rendering
+- [x] Build: `npm run build` clean, 303.94 kB raw / 86.57 kB gzip
+- Frontend commit: TBD | Backend commit: TBD
 
 ---
 
