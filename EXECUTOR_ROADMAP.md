@@ -1,5 +1,27 @@
 # EXECUTOR_ROADMAP.md
 
+## Phase 12 — AI-shopping repositioning (2026-09-03, f7afd44)
+
+Platform repositioned around EB AI as primary entry point. Copy and layout only — no new AI capability.
+
+### Copy constraint (permanent)
+Marketing copy may describe what EB AI does as a product: find products in the Bida catalog by asking in plain language. It must NOT claim EB AI adds to cart, places orders, negotiates, or recommends beyond the catalog. In-chat stub/live copy variants in `AIChatBubble` must remain independent so go-live requires only `ANTHROPIC_API_KEY` — no copy edits. This constraint applies to all future phases: never let marketing copy outrun actual capability.
+
+### What changed
+- **Hero:** "Buy anything in Bida. Just ask." Primary CTA opens EB AI panel; secondary browses catalog; tertiary (underlined text link) reaches Become a Seller.
+- **EB AI top entry:** Amber-gradient tappable bar at top of shop view above catalog search. Logo icon + "Ask EB AI for anything in Bida..." prompt. "or search the catalog yourself" divider below it. Product search unchanged and still present.
+- **Visual distinction:** Entry = amber gradient bg, #D97706 border, EB logo, prompt text. Search = plain white input, #FDE68A border, 🔍 emoji, keyword placeholder.
+- **State lifting:** `open`/`setOpen` moved from `AIChatBubble` local state to `App` level so `ShopView` can trigger the panel. Existing `useEffect([open])` auto-focuses input — no extra wiring needed.
+- **Value props:** AI discovery leads; availability honesty framed as differentiator; delivery; vendor discoverability.
+- **How-it-works:** "Ask EB AI or browse" as first step.
+- **Taglines/meta:** Wordmark tagline, page title, meta description all updated.
+- **Seller page:** Copy explains EB AI discoverability for vendors.
+
+### Height at 360px (no discovery rails)
+Header ~90px + main-top-pad 30px + AI entry ~60px + search bar ~61px + category pills ~58px = ~299px. Catalog visible ~61px above fold — the new element adds ~60px versus the pre-Phase-12 baseline. With discovery rails present, catalog is below fold in both pre- and post-Phase-12 states (rails ~180px alone account for this).
+
+---
+
 ## Regressions and post-ship defects
 
 ### Phase 11C badge regression (2026-08-10)
