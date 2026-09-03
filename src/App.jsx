@@ -180,6 +180,17 @@ const styles = `
   .out-of-stock-text { background: #DC2626; color: white; padding: 8px 20px; border-radius: 8px; font-weight: bold; font-size: 16px; transform: rotate(-15deg); }
   .search-bar { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; flex-wrap: wrap; }
   .search-bar input { flex: 1; min-width: 200px; margin-bottom: 0; }
+  /* EB AI top entry — amber gradient, branded, visually distinct from plain product search */
+  .ai-entry-bar { display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #FEF3C7, #FDE68A); border: 2px solid #D97706; border-radius: 12px; padding: 11px 16px; cursor: pointer; margin-bottom: 10px; transition: all 0.15s; }
+  .ai-entry-bar:hover { background: linear-gradient(135deg, #FDE68A, #FCD34D); border-color: #B45309; }
+  .ai-entry-icon { width: 26px; height: 26px; object-fit: contain; border-radius: 5px; flex-shrink: 0; }
+  .ai-entry-prompt { color: #92400E; font-size: 15px; flex: 1; }
+  .ai-entry-arrow { color: #B45309; font-size: 20px; font-weight: bold; line-height: 1; }
+  .search-divider { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; color: #B45309; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; }
+  .search-divider::before, .search-divider::after { content: ''; flex: 1; height: 1px; background: #FDE68A; }
+  /* Hero tertiary CTA */
+  .hero-cta-tertiary { padding: 10px 20px; border-radius: 10px; border: none; background: transparent; color: rgba(255,255,255,0.65); font-size: 13px; cursor: pointer; transition: color 0.15s; text-decoration: underline; }
+  .hero-cta-tertiary:hover { color: white; }
   .category-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
   .cat-btn { padding: 6px 16px; border-radius: 20px; border: 2px solid #FDE68A; background: white; color: #92400E; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
   .cat-btn:hover { border-color: #D97706; background: #FEF3C7; }
@@ -345,6 +356,7 @@ export default function App() {
   const [approvedVendors, setApprovedVendors] = useState([]);
   const [pendingVendorCount, setPendingVendorCount] = useState(0);
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
+  const [aiChatOpen, setAIChatOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -465,7 +477,7 @@ export default function App() {
         handleLogout={handleLogout}
         pendingVendorCount={pendingVendorCount} pendingRequestCount={pendingRequestCount} />
       <main className="main">
-        {currentView === "shop" && <ShopView products={products} addToCart={addToCart} setCurrentView={setCurrentView} categories={categories} />}
+        {currentView === "shop" && <ShopView products={products} addToCart={addToCart} setCurrentView={setCurrentView} categories={categories} openAIChat={() => setAIChatOpen(true)} />}
         {currentView === "cart" && <CartView cart={cart} updateQty={updateQty} removeFromCart={removeFromCart} placeOrder={placeOrder} bank={bank} locations={locations} />}
         {currentView === "track" && <TrackOrderView initialOrderId={deepLinkOrderId} setCurrentView={setCurrentView} setSelectedOrder={setSelectedOrder} />}
         {currentView === "chat" && <ChatView isAdmin={isAdmin} selectedOrder={selectedOrder} setSelectedOrder={setSelectedOrder} />}
@@ -496,7 +508,7 @@ export default function App() {
           )}
         </button>
       )}
-      <AIChatBubble addToCart={addToCart} setCurrentView={setCurrentView} setSelectedOrder={setSelectedOrder} />
+      <AIChatBubble open={aiChatOpen} setOpen={setAIChatOpen} addToCart={addToCart} setCurrentView={setCurrentView} setSelectedOrder={setSelectedOrder} />
       <div className="tiktok-float" onClick={() => window.open("https://tiktok.com/@everythingbida", "_blank")} title="Follow us on TikTok">
         <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
           <path d="M19.321 5.562a5.124 5.124 0 0 1-.443-.258 6.228 6.228 0 0 1-1.137-.966c-.849-.971-1.166-1.959-1.282-2.648h.004C16.368 1.308 16.393 1 16.396 1h-3.91v14.801c0 .196 0 .391-.008.583 0 .023-.002.045-.004.07v.012a3.257 3.257 0 0 1-1.67 2.653 3.2 3.2 0 0 1-1.585.417c-1.78 0-3.225-1.452-3.225-3.244 0-1.791 1.445-3.243 3.225-3.243.347 0 .681.057.994.158l.005-3.966a7.12 7.12 0 0 0-.999-.07C6.467 9.171 3.5 12.155 3.5 15.842 3.5 19.529 6.467 22.5 10.219 22.5c3.752 0 6.719-2.97 6.719-6.658v-7.5a10.09 10.09 0 0 0 5.562 1.671V6.059a5.646 5.646 0 0 1-3.179-.497z" fill="white"/>
@@ -537,7 +549,7 @@ function Header({ isAdmin, currentView, setCurrentView, handleLogout, pendingVen
             </div>
             <div className="logo-wordmark">
               <h1 style={{ fontSize: "22px", color: "#92400E" }}>EverythingBida</h1>
-              <p style={{ fontSize: "11px", color: "#B45309" }}>your source for everything in bida.</p>
+              <p style={{ fontSize: "11px", color: "#B45309" }}>buy anything in bida. just ask.</p>
             </div>
           </button>
         </div>
@@ -643,7 +655,7 @@ function DiscoveryRails({ products, addToCart }) {
   );
 }
 
-function ShopView({ products, addToCart, setCurrentView, categories }) {
+function ShopView({ products, addToCart, setCurrentView, categories, openAIChat }) {
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const catalogRef = useRef(null);
@@ -668,8 +680,22 @@ function ShopView({ products, addToCart, setCurrentView, categories }) {
       {/* --- Discovery Rails (top of page: Just Added + Most Ordered) --- */}
       <DiscoveryRails products={products} addToCart={addToCart} />
 
-      {/* --- Catalog anchor: search + category pills + grid --- */}
+      {/* --- Catalog anchor: EB AI entry + search + category pills + grid --- */}
       <div ref={catalogRef}>
+        {/* EB AI entry — amber gradient, logo, "Ask EB AI..." — visually distinct from plain product search below */}
+        <div
+          className="ai-entry-bar"
+          onClick={openAIChat}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAIChat(); } }}
+          aria-label="Ask EB AI for anything in Bida"
+        >
+          <img src="/logo.png" alt="" aria-hidden="true" className="ai-entry-icon" />
+          <span className="ai-entry-prompt">Ask EB AI for anything in Bida...</span>
+          <span className="ai-entry-arrow">›</span>
+        </div>
+        <div className="search-divider">or search the catalog yourself</div>
         <div className="search-bar">
           <input type="text" className="input" placeholder="🔍 Search products..." value={searchText} onChange={e => setSearchText(e.target.value)} />
           {searchText && (
@@ -719,43 +745,49 @@ function ShopView({ products, addToCart, setCurrentView, categories }) {
       {/* --- Hero / Value Props / How It Works (moved below catalog) --- */}
       <div className="shop-landing">
         <div className="hero">
-          <div className="hero-title">EverythingBida</div>
-          <div className="hero-tagline">Hyperlocal same-day delivery in Bida.<br />Order now. At your door in minutes.</div>
+          <div className="hero-title">Buy anything in Bida. Just ask.</div>
+          <div className="hero-tagline">
+            Describe what you need in plain words — EB AI finds it from Bida sellers in stock today.<br />
+            Add to cart, pay by transfer, delivered in 10–60 minutes.
+          </div>
           <div className="hero-ctas">
-            <button className="hero-cta-primary" onClick={scrollToCatalog}>🛒 Shop Now</button>
-            <button className="hero-cta-secondary" onClick={() => setCurrentView("become-seller")}>🏬 Become a Seller</button>
+            <button className="hero-cta-primary" onClick={openAIChat}>✨ Ask EB AI</button>
+            <button className="hero-cta-secondary" onClick={scrollToCatalog}>🛒 Browse catalog</button>
+          </div>
+          <div style={{ marginTop: "14px" }}>
+            <button className="hero-cta-tertiary" onClick={() => setCurrentView("become-seller")}>🏬 Become a Seller</button>
           </div>
         </div>
 
         <div className="value-props">
           <div className="value-prop">
-            <div className="value-prop-icon">⚡</div>
-            <h4>Instant Availability</h4>
-            <p>Only products in stock and ready in Bida today are listed. What you see is what you can get right now.</p>
+            <div className="value-prop-icon">✨</div>
+            <h4>Ask for anything</h4>
+            <p>Describe what you need in plain words and EB AI finds it in the Bida catalog — no need to know the exact product name.</p>
           </div>
           <div className="value-prop">
-            <div className="value-prop-icon">🚀</div>
-            <h4>Delivery in Minutes</h4>
-            <p>Order now, receive within 10–60 minutes at your doorstep.</p>
+            <div className="value-prop-icon">✅</div>
+            <h4>Only what's actually in Bida today</h4>
+            <p>EB AI only shows products in stock right now. When something isn't available, it says so plainly — no guessing, no false promises. That honesty is the point.</p>
           </div>
           <div className="value-prop">
-            <div className="value-prop-icon">🛍️</div>
-            <h4>Effortless Selling</h4>
-            <p>Vendors list products in seconds and reach customers across Bida instantly. Our team verifies and approves quickly.</p>
+            <div className="value-prop-icon">🚚</div>
+            <h4>At your door in 10–60 minutes</h4>
+            <p>Once you order, a rider brings it to you. No waiting days. Local sellers, local delivery.</p>
           </div>
           <div className="value-prop">
-            <div className="value-prop-icon">🏎️</div>
-            <h4>Built for Speed</h4>
-            <p>We solve the biggest frustration with online shopping: slow delivery.</p>
+            <div className="value-prop-icon">🏬</div>
+            <h4>Sell with us</h4>
+            <p>List your products and every EB AI shopper in Bida can find them by simply asking. Our team verifies and approves listings quickly.</p>
           </div>
         </div>
 
         <div className="how-it-works">
           <h3>How it works</h3>
           <div className="how-steps">
-            <div className="how-step"><span className="how-step-icon">🔍</span><span className="how-step-label">Browse</span></div>
+            <div className="how-step"><span className="how-step-icon">✨</span><span className="how-step-label">Ask EB AI or browse</span></div>
             <div className="how-arrow">›</div>
-            <div className="how-step"><span className="how-step-icon">🛒</span><span className="how-step-label">Order</span></div>
+            <div className="how-step"><span className="how-step-icon">🛒</span><span className="how-step-label">Add to cart</span></div>
             <div className="how-arrow">›</div>
             <div className="how-step"><span className="how-step-icon">💳</span><span className="how-step-label">Pay by transfer</span></div>
             <div className="how-arrow">›</div>
@@ -2053,7 +2085,7 @@ function BecomeSellerView() {
     <div style={{ maxWidth: "520px", margin: "0 auto" }}>
       <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#78350F", marginBottom: "8px" }}>🏬 Become a Seller</h2>
       <p style={{ color: "#92400E", marginBottom: "24px", lineHeight: 1.6 }}>
-        List your products in seconds and reach customers across Bida instantly. Our team verifies product quality before approving, so customers trust every listing.
+        List your products and every EB AI shopper in Bida can find them by simply asking. When a customer says "do you have fresh chicken?", EB AI shows your listing if it matches. Our team verifies products before approving, so customers trust what they see.
       </p>
       <div className="card">
         <input type="text" className="input" placeholder="Business or seller name *"
@@ -2283,8 +2315,7 @@ function ChatOrderCard({ order, setCurrentView, setSelectedOrder }) {
 // ---------------------------------------------------------------------------
 // AI Chat Bubble — floating bottom-left (does not collide with TikTok bottom-right)
 // ---------------------------------------------------------------------------
-function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder }) {
-  const [open, setOpen] = useState(false);
+function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder, open, setOpen }) {
   const [messages, setMessages] = useState([]); // { role, content, products?, order?, not_available?, requested_item? }
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
