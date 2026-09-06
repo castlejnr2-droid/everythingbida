@@ -97,6 +97,7 @@ const styles = `
   .nav-btn:hover { background: #FDE68A; }
   .nav-btn.active { background: #B45309; color: white; }
   .main { max-width: 1100px; margin: 0 auto; padding: 30px 20px; min-height: calc(100vh - 250px); }
+  @media (max-width: 480px) { .main { padding: 16px 16px; } }
   .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 15px; }
   .input { width: 100%; padding: 12px 15px; border-radius: 10px; border: 2px solid #FDE68A; font-size: 16px; margin-bottom: 12px; outline: none; font-family: Arial, sans-serif; }
   .input:focus { border-color: #D97706; }
@@ -180,18 +181,19 @@ const styles = `
   .out-of-stock-text { background: #DC2626; color: white; padding: 8px 20px; border-radius: 8px; font-weight: bold; font-size: 16px; transform: rotate(-15deg); }
   .search-bar { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; flex-wrap: wrap; }
   .search-bar input { flex: 1; min-width: 200px; margin-bottom: 0; }
-  /* EB AI top entry — amber gradient, branded, visually distinct from plain product search */
-  .ai-entry-bar { display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #FEF3C7, #FDE68A); border: 2px solid #D97706; border-radius: 12px; padding: 11px 16px; cursor: pointer; margin-bottom: 10px; transition: all 0.15s; }
-  .ai-entry-bar:hover { background: linear-gradient(135deg, #FDE68A, #FCD34D); border-color: #B45309; }
-  .ai-entry-icon { width: 26px; height: 26px; object-fit: contain; border-radius: 5px; flex-shrink: 0; }
-  .ai-entry-prompt { color: #92400E; font-size: 15px; flex: 1; }
-  .ai-entry-arrow { color: #B45309; font-size: 20px; font-weight: bold; line-height: 1; }
-  .search-divider { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; color: #B45309; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; }
-  .search-divider::before, .search-divider::after { content: ''; flex: 1; height: 1px; background: #FDE68A; }
+  /* EB AI + search combined row — AI button left (primary, amber), search input right */
+  .ai-search-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: stretch; }
+  .ai-entry-btn { display: flex; align-items: center; gap: 7px; background: linear-gradient(135deg, #FEF3C7, #FDE68A); border: 2px solid #D97706; border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; white-space: nowrap; }
+  .ai-entry-btn:hover { background: linear-gradient(135deg, #FDE68A, #FCD34D); border-color: #B45309; }
+  .ai-entry-icon { width: 24px; height: 24px; object-fit: contain; border-radius: 4px; flex-shrink: 0; }
+  .ai-entry-label { color: #92400E; font-size: 14px; font-weight: 700; }
+  .ai-entry-arrow { color: #B45309; font-size: 18px; font-weight: bold; line-height: 1; }
+  .ai-search-row .input { flex: 1; min-width: 0; margin-bottom: 0; }
   /* Hero tertiary CTA */
   .hero-cta-tertiary { padding: 10px 20px; border-radius: 10px; border: none; background: transparent; color: rgba(255,255,255,0.65); font-size: 13px; cursor: pointer; transition: color 0.15s; text-decoration: underline; }
   .hero-cta-tertiary:hover { color: white; }
-  .category-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .category-filters { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 16px; padding-bottom: 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .category-filters::-webkit-scrollbar { display: none; }
   .cat-btn { padding: 6px 16px; border-radius: 20px; border: 2px solid #FDE68A; background: white; color: #92400E; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
   .cat-btn:hover { border-color: #D97706; background: #FEF3C7; }
   .cat-btn.active { background: linear-gradient(135deg, #B45309, #78350F); color: white; border-color: #B45309; }
@@ -680,28 +682,29 @@ function ShopView({ products, addToCart, setCurrentView, categories, openAIChat 
       {/* --- Discovery Rails (top of page: Just Added + Most Ordered) --- */}
       <DiscoveryRails products={products} addToCart={addToCart} />
 
-      {/* --- Catalog anchor: EB AI entry + search + category pills + grid --- */}
+      {/* --- Catalog anchor: EB AI (primary, amber) + search in one row, then category pills + grid --- */}
       <div ref={catalogRef}>
-        {/* EB AI entry — amber gradient, logo, "Ask EB AI..." — visually distinct from plain product search below */}
-        <div
-          className="ai-entry-bar"
-          onClick={openAIChat}
-          role="button"
-          tabIndex={0}
-          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAIChat(); } }}
-          aria-label="Ask EB AI for anything in Bida"
-        >
-          <img src="/logo.png" alt="" aria-hidden="true" className="ai-entry-icon" />
-          <span className="ai-entry-prompt">Ask EB AI for anything in Bida...</span>
-          <span className="ai-entry-arrow">›</span>
-        </div>
-        <div className="search-divider">or search the catalog yourself</div>
-        <div className="search-bar">
-          <input type="text" className="input" placeholder="🔍 Search products..." value={searchText} onChange={e => setSearchText(e.target.value)} />
+        {/* Single row: EB AI button (left, amber, primary) + plain search input (right) */}
+        <div className="ai-search-row">
+          <div
+            className="ai-entry-btn"
+            onClick={openAIChat}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAIChat(); } }}
+            aria-label="Ask EB AI for anything in Bida"
+          >
+            <img src="/logo.png" alt="" aria-hidden="true" className="ai-entry-icon" />
+            <span className="ai-entry-label">Ask EB AI</span>
+            <span className="ai-entry-arrow">›</span>
+          </div>
+          <input type="text" className="input" placeholder="🔍 Search..." value={searchText} onChange={e => setSearchText(e.target.value)} aria-label="Search products" />
           {searchText && (
-            <button className="btn btn-outline" style={{ padding: "12px 14px", whiteSpace: "nowrap" }} onClick={() => setSearchText("")}>✕ Clear</button>
+            <button className="btn btn-outline" style={{ padding: "10px 12px", whiteSpace: "nowrap", flexShrink: 0 }} onClick={() => setSearchText("")}>✕</button>
           )}
-          <button className="btn btn-outline" style={{ padding: "12px 20px", whiteSpace: "nowrap" }} onClick={() => setCurrentView("track")}>📦 Track Order</button>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "10px" }}>
+          <button className="btn btn-outline" style={{ padding: "8px 14px", fontSize: "13px", whiteSpace: "nowrap" }} onClick={() => setCurrentView("track")}>📦 Track Order</button>
         </div>
         <div className="category-filters">
           {["All", ...visibleCategories.map(c => c.name)].map(cat => (
@@ -747,8 +750,8 @@ function ShopView({ products, addToCart, setCurrentView, categories, openAIChat 
         <div className="hero">
           <div className="hero-title">Buy anything in Bida. Just ask.</div>
           <div className="hero-tagline">
-            Describe what you need in plain words — EB AI finds it from Bida sellers in stock today.<br />
-            Add to cart, pay by transfer, delivered in 10–60 minutes.
+            Describe what you need in plain words. EB AI finds it from Bida sellers in stock today.<br />
+            Add to cart, pay by transfer, delivered in 10-60 minutes.
           </div>
           <div className="hero-ctas">
             <button className="hero-cta-primary" onClick={openAIChat}>✨ Ask EB AI</button>
@@ -763,16 +766,16 @@ function ShopView({ products, addToCart, setCurrentView, categories, openAIChat 
           <div className="value-prop">
             <div className="value-prop-icon">✨</div>
             <h4>Ask for anything</h4>
-            <p>Describe what you need in plain words and EB AI finds it in the Bida catalog — no need to know the exact product name.</p>
+            <p>Describe what you need in plain words and EB AI finds it in the Bida catalog. No need to know the exact product name.</p>
           </div>
           <div className="value-prop">
             <div className="value-prop-icon">✅</div>
             <h4>Only what's actually in Bida today</h4>
-            <p>EB AI only shows products in stock right now. When something isn't available, it says so plainly — no guessing, no false promises. That honesty is the point.</p>
+            <p>EB AI only shows products in stock right now. When something isn't available, it says so plainly. No guessing, no false promises. That honesty is the point.</p>
           </div>
           <div className="value-prop">
             <div className="value-prop-icon">🚚</div>
-            <h4>At your door in 10–60 minutes</h4>
+            <h4>At your door in 10-60 minutes</h4>
             <p>Once you order, a rider brings it to you. No waiting days. Local sellers, local delivery.</p>
           </div>
           <div className="value-prop">
@@ -791,7 +794,7 @@ function ShopView({ products, addToCart, setCurrentView, categories, openAIChat 
             <div className="how-arrow">›</div>
             <div className="how-step"><span className="how-step-icon">💳</span><span className="how-step-label">Pay by transfer</span></div>
             <div className="how-arrow">›</div>
-            <div className="how-step"><span className="how-step-icon">🚚</span><span className="how-step-label">Delivered in 10–60 min</span></div>
+            <div className="how-step"><span className="how-step-icon">🚚</span><span className="how-step-label">Delivered in 10-60 min</span></div>
           </div>
         </div>
       </div>{/* /shop-landing */}
@@ -806,7 +809,7 @@ const ETA_MESSAGES = {
   pending:            "We've received your order and will confirm it shortly.",
   confirmed:          "Your order is confirmed! We're getting it ready for you.",
   preparing:          "Your order is being freshly prepared.",
-  out_for_delivery:   "Your order is on its way! Delivery to most locations in Bida typically takes 10–60 minutes.",
+  out_for_delivery:   "Your order is on its way! Delivery to most locations in Bida typically takes 10-60 minutes.",
   ready_for_pickup:   "Your order is ready for pickup at our store. Please come collect it at your earliest convenience.",
   delivered:          "Your order has been delivered. Thank you for choosing EverythingBida!",
 };
@@ -2075,7 +2078,7 @@ function BecomeSellerView() {
           <p style={{ color: "#065F46", lineHeight: 1.6, marginBottom: "10px" }}>
             Thank you for applying to sell on EverythingBida. Our team will review your products and <strong>call you on the phone number you provided</strong> to verify and approve your listing.
           </p>
-          <p style={{ color: "#6B7280", fontSize: "13px" }}>We typically reach out within 1–2 business days.</p>
+          <p style={{ color: "#6B7280", fontSize: "13px" }}>We typically reach out within 1-2 business days.</p>
         </div>
       </div>
     );
