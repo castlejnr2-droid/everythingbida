@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import * as api from "./api.js";
 
+// Base price formatter — number with commas, ₦ prefix
 const formatPrice = (price) => `₦${Number(price).toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+// Price + optional unit: "₦4,500/kg" when unit present, "₦4,500" when absent
+const formatPriceWithUnit = (price, unit) => {
+  const base = formatPrice(price);
+  return (unit && String(unit).trim()) ? `${base}/${String(unit).trim()}` : base;
+};
 const fmtDate = (iso) => new Date(iso).toLocaleString('en-NG', { timeZone: 'Africa/Lagos', dateStyle: 'medium', timeStyle: 'short' });
 
 // Deterministic color from category name
@@ -609,7 +615,7 @@ function ProductRail({ title, icon, products, addToCart }) {
                 <h3>{product.name}</h3>
                 <p>{product.description}</p>
                 <div className="product-footer" style={{ marginTop: "10px" }}>
-                  <div className="product-price">{formatPrice(product.price)}/kg</div>
+                  <div className="product-price">{formatPriceWithUnit(product.price, product.unit)}</div>
                   <button className="btn" style={{ padding: "10px 16px", fontSize: "14px" }} disabled={outOfStock} onClick={() => addToCart(product)}>
                     {outOfStock ? "Sold Out" : "Add"}
                   </button>
@@ -734,7 +740,7 @@ function ShopView({ products, addToCart, setCurrentView, categories, openAIChat 
                     <p>{linkifyText(product.description)}</p>
                     <StockBadge inStock={product.in_stock} />
                     <div className="product-footer" style={{ marginTop: "10px" }}>
-                      <div className="product-price">{formatPrice(product.price)}/kg</div>
+                      <div className="product-price">{formatPriceWithUnit(product.price, product.unit)}</div>
                       <button className="btn" disabled={outOfStock} onClick={() => addToCart(product)}>{outOfStock ? "Sold Out" : "Add to Cart"}</button>
                     </div>
                   </div>
@@ -1043,11 +1049,11 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
               </div>
               <div style={{ flex: 1 }}>
                 <h4 style={{ color: "#78350F" }}>{item.name}</h4>
-                <p style={{ color: "#92400E", fontSize: "14px" }}>{formatPrice(item.price)}/kg</p>
+                <p style={{ color: "#92400E", fontSize: "14px" }}>{formatPriceWithUnit(item.price, item.unit)}</p>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <button className="qty-btn" onClick={() => updateQty(item.id, -1)}>−</button>
-                <span style={{ fontWeight: "bold", minWidth: "30px", textAlign: "center" }}>{item.qty}kg</span>
+                <span style={{ fontWeight: "bold", minWidth: "30px", textAlign: "center" }}>{item.qty}{item.unit ? ` ${item.unit}` : ''}</span>
                 <button className="qty-btn" onClick={() => updateQty(item.id, 1)}>+</button>
               </div>
               <div style={{ fontWeight: "bold", color: "#78350F", minWidth: "100px", textAlign: "right" }}>{formatPrice(item.price * item.qty)}</div>
@@ -1165,7 +1171,7 @@ function CartView({ cart, updateQty, removeFromCart, placeOrder, bank, locations
 }
 
 function AdminView({ products, setProducts, categories, setCategories, approvedVendors }) {
-  const initialForm = { name: "", category_id: "", price: "", description: "", image_id: null, in_stock: true, vendor_id: "" };
+  const initialForm = { name: "", category_id: "", price: "", unit: "", description: "", image_id: null, in_stock: true, vendor_id: "" };
   const [formData, setFormData] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
   const [imgPreview, setImgPreview] = useState(null);
@@ -1205,6 +1211,7 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
       name: product.name,
       category_id: product.category_id ? String(product.category_id) : "",
       price: String(product.price),
+      unit: product.unit || "",
       description: product.description || "",
       image_id: product.image_id || null,
       in_stock: product.in_stock,
@@ -1242,6 +1249,7 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
     const body = {
       name: formData.name.trim(),
       price: parseInt(formData.price),
+      unit: formData.unit.trim() || null,
       description: formData.description,
       category_id: formData.category_id ? parseInt(formData.category_id) : null,
       image_id: formData.image_id,
@@ -1331,7 +1339,22 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
             <button className="btn btn-outline" style={{ padding: "10px 14px", fontSize: "13px", whiteSpace: "nowrap" }} onClick={() => setAddingCategory(true)}>+ New</button>
           </div>
         )}
-        <input type="number" className="input" placeholder="Price per kg (₦)" value={formData.price} onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} />
+        <input type="number" className="input" placeholder="Price (₦)" value={formData.price} onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} />
+        <label style={{ display: "block", fontSize: "13px", color: "#92400E", marginBottom: "4px" }}>Unit <span style={{ fontWeight: "normal", color: "#B45309" }}>(optional)</span></label>
+        <input
+          type="text"
+          className="input"
+          placeholder="e.g. kg, piece, pack"
+          value={formData.unit}
+          onChange={e => setFormData(f => ({ ...f, unit: e.target.value }))}
+          list="unit-suggestions"
+          style={{ marginBottom: "12px" }}
+        />
+        <datalist id="unit-suggestions">
+          {["kg", "piece", "pack", "bottle", "carton", "bag", "litre", "dozen", "set", "pair"].map(u => (
+            <option key={u} value={u} />
+          ))}
+        </datalist>
         <textarea className="input" placeholder="Description" value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} rows="3" />
         <label style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "15px", cursor: "pointer", color: "#92400E" }}>
           <input type="checkbox" checked={formData.in_stock} onChange={e => setFormData(f => ({ ...f, in_stock: e.target.checked }))} style={{ width: "18px", height: "18px" }} />
@@ -1365,7 +1388,7 @@ function AdminView({ products, setProducts, categories, setCategories, approvedV
               <div className="admin-product-info">
                 <h4 style={{ color: "#78350F", marginBottom: "4px" }}>{product.name}</h4>
                 <p style={{ color: "#92400E", fontSize: "13px", marginBottom: "4px" }}>{product.description}</p>
-                <p style={{ fontWeight: "bold", color: "#D97706" }}>{formatPrice(product.price)}/kg • <span style={{ fontSize: "12px" }}>{product.category_name || "Uncategorized"}</span></p>
+                <p style={{ fontWeight: "bold", color: "#D97706" }}>{formatPriceWithUnit(product.price, product.unit)} • <span style={{ fontSize: "12px" }}>{product.category_name || "Uncategorized"}</span></p>
                 <StockBadge inStock={product.in_stock} />
               </div>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -2266,7 +2289,7 @@ function ChatProductCard({ product, addToCart }) {
       </div>
       <div className="ai-pc-body">
         <div className="ai-pc-name" title={product.name}>{product.name}</div>
-        <div className="ai-pc-price">{formatPrice(product.price)}/kg</div>
+        <div className="ai-pc-price">{formatPriceWithUnit(product.price, product.unit)}</div>
         <button
           className="btn"
           style={{ width: "100%", padding: "6px 8px", fontSize: "12px" }}

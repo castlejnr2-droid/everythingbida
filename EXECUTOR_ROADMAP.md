@@ -26,7 +26,27 @@ Sync env vars through the Railway dashboard UI or `railway variables set KEY=VAL
 
 ---
 
-## Phase 10 go-live — EB AI live (2026-09-10)
+## Phase 15 — Unit field, CORS fix, categories pending (2026-09-10)
+
+Backend commit: TBD | Frontend commit: TBD
+
+### What changed
+- **Migration 004** (`004_add_unit_to_products.sql`): `unit TEXT` column on `products` table.
+- **Unit field** threaded through every product read, admin create/update, order items JSON, both email templates, and the EB AI system prompt.
+- **Frontend `formatPriceWithUnit(price, unit)`**: renders "N4,500/kg" with unit, "N4,500" without. Applied in ProductRail, ShopView, CartView, AdminView list, ChatProductCard.
+- **Admin form**: price label = "Price (N)"; optional unit input with `<datalist>` (10 suggestions + free text); pre-filled on edit.
+- **CORS 403 fix**: disallowed origins now return HTTP 403 + `{"error":"origin not allowed"}` (previously HTTP 500).
+- **Categories**: proposed and AWAITING OPERATOR APPROVAL. Do not insert until operator confirms.
+
+### State (2026-09-10)
+- `/health`: migrations should report 4 after deploy (was 3)
+- Catalog: EMPTY -- operator must add real products via admin panel
+- Unit field: live on all API surfaces after deploy
+- CORS: confirmed fixed for bogus origins
+
+---
+
+## Phase 10 go-live -- EB AI live (2026-09-10)
 
 Backend commits: 54fe695 (health accuracy fix), aa14c41 (token usage endpoint), 0f058fb (cleanup scripts), fcc4a10 (cleanup removal)
 Frontend commit: 31a3550
