@@ -29,7 +29,7 @@ Sync env vars through the Railway dashboard UI or `railway variables set KEY=VAL
 ## Phase 10 go-live — EB AI live (2026-09-10)
 
 Backend commits: 54fe695 (health accuracy fix), aa14c41 (token usage endpoint), 0f058fb (cleanup scripts), fcc4a10 (cleanup removal)
-Frontend commit: TBD (this roadmap + PLAN.md update)
+Frontend commit: 31a3550
 
 ### Health accuracy fix (backend 54fe695)
 `/health` now reports `assistant:"live"` only after at least one Anthropic call succeeds on the running container.
