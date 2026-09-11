@@ -331,6 +331,18 @@ const styles = `
   .req-status-reviewed { background: #DBEAFE; color: #1E40AF; }
   .req-status-stocked  { background: #D1FAE5; color: #065F46; }
   .req-status-declined { background: #FEE2E2; color: #DC2626; }
+  /* --- EB AI: Cart confirm card --- */
+  .ai-cart-confirm-card { background: #FFFBEB; border: 2px solid #D97706; border-radius: 12px; padding: 12px 14px; margin-top: 4px; max-width: 95%; align-self: flex-start; }
+  .ai-cart-confirm-heading { font-weight: 700; color: #78350F; font-size: 14px; margin-bottom: 8px; }
+  .ai-cart-confirm-items { margin-bottom: 10px; display: flex; flex-direction: column; gap: 5px; }
+  .ai-cart-confirm-item { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; font-size: 13px; color: #78350F; }
+  .ai-cart-confirm-item-name { font-weight: 600; }
+  .ai-cart-confirm-item-qty { color: #B45309; font-weight: 700; }
+  .ai-cart-confirm-item-price { color: #92400E; }
+  .ai-cart-confirm-item-sub { color: #78350F; font-weight: 700; }
+  .ai-cart-confirm-item-badge { font-size: 10px; background: #FDE68A; color: #92400E; border-radius: 6px; padding: 1px 6px; text-transform: uppercase; font-weight: 600; }
+  .ai-cart-confirm-btns { display: flex; gap: 8px; }
+  .ai-cart-confirmed { background: #D1FAE5; border: 2px solid #6EE7B7; border-radius: 10px; padding: 10px 14px; color: #065F46; font-size: 13px; font-weight: 600; max-width: 95%; align-self: flex-start; }
 `;
 
 
@@ -516,7 +528,7 @@ export default function App() {
           )}
         </button>
       )}
-      <AIChatBubble open={aiChatOpen} setOpen={setAIChatOpen} addToCart={addToCart} setCurrentView={setCurrentView} setSelectedOrder={setSelectedOrder} />
+      <AIChatBubble open={aiChatOpen} setOpen={setAIChatOpen} addToCart={addToCart} setCurrentView={setCurrentView} setSelectedOrder={setSelectedOrder} cart={cart} clearCart={clearCart} updateQty={updateQty} removeFromCart={removeFromCart} />
       <div className="tiktok-float" onClick={() => window.open("https://tiktok.com/@everythingbida", "_blank")} title="Follow us on TikTok">
         <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
           <path d="M19.321 5.562a5.124 5.124 0 0 1-.443-.258 6.228 6.228 0 0 1-1.137-.966c-.849-.971-1.166-1.959-1.282-2.648h.004C16.368 1.308 16.393 1 16.396 1h-3.91v14.801c0 .196 0 .391-.008.583 0 .023-.002.045-.004.07v.012a3.257 3.257 0 0 1-1.67 2.653 3.2 3.2 0 0 1-1.585.417c-1.78 0-3.225-1.452-3.225-3.244 0-1.791 1.445-3.243 3.225-3.243.347 0 .681.057.994.158l.005-3.966a7.12 7.12 0 0 0-.999-.07C6.467 9.171 3.5 12.155 3.5 15.842 3.5 19.529 6.467 22.5 10.219 22.5c3.752 0 6.719-2.97 6.719-6.658v-7.5a10.09 10.09 0 0 0 5.562 1.671V6.059a5.646 5.646 0 0 1-3.179-.497z" fill="white"/>
@@ -2341,8 +2353,25 @@ function ChatOrderCard({ order, setCurrentView, setSelectedOrder }) {
 // ---------------------------------------------------------------------------
 // AI Chat Bubble — floating bottom-left (does not collide with TikTok bottom-right)
 // ---------------------------------------------------------------------------
-function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder, open, setOpen }) {
-  const [messages, setMessages] = useState([]); // { role, content, products?, order?, not_available?, requested_item? }
+// Strip markdown formatting from assistant reply text before rendering.
+// Chosen approach: plain-text strip + white-space: pre-wrap (no dangerouslySetInnerHTML).
+// This avoids XSS risk from model output — we never set innerHTML.
+// Strips: **bold**, *italic*, ### headings, _ underline markers.
+function stripMarkdown(text) {
+  if (!text) return '';
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold** -> bold
+    .replace(/\*(.+?)\*/g, '$1')        // *italic* -> italic
+    .replace(/^#{1,6}\s*/gm, '')        // ### heading -> heading (strip # prefix per line)
+    .replace(/__(.+?)__/g, '$1')        // __underline__ -> underline
+    .replace(/_(.+?)_/g, '$1');         // _italic_ -> italic
+}
+
+function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder, cart, clearCart, updateQty, removeFromCart, open, setOpen }) {
+  // messages: { role, content, products?, order?, not_available?, requested_item?, type? }
+  // type: 'cart_confirm' | undefined
+  // cart_confirm messages also carry: cart_actions, pendingActions, confirmed (bool | null)
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -2370,9 +2399,9 @@ function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder, open, setOp
     setInput('');
     setError(null);
 
-    // Build history from current session (last 10 turns, roles only)
+    // Build history from current session (last 10 turns, roles only — skip cart_confirm special messages)
     const history = messages
-      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .filter(m => (m.role === 'user' || m.role === 'assistant') && m.type !== 'cart_confirm')
       .slice(-10)
       .map(m => ({ role: m.role, content: m.content }));
 
@@ -2381,20 +2410,97 @@ function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder, open, setOp
     try {
       const res = await api.postAssistant({ message: msg, history });
       if (res.assistant_mode) setAssistantMode(res.assistant_mode);
-      setMessages(prev => [...prev, {
+
+      const baseMsg = {
         role: 'assistant',
         content: res.reply,
         products: res.products || [],
         order: res.order || null,
         not_available: !!res.not_available,
         requested_item: res.requested_item || null,
-      }]);
+      };
+
+      // If the response includes validated cart_actions, insert a confirmation card
+      if (res.cart_actions && res.cart_actions.length > 0) {
+        setMessages(prev => [...prev, baseMsg, {
+          role: 'assistant',
+          type: 'cart_confirm',
+          content: '',
+          cart_actions: res.cart_actions,
+          confirmed: null, // null = pending, true = confirmed, false = cancelled
+          products: res.products || [],
+        }]);
+      } else {
+        setMessages(prev => [...prev, baseMsg]);
+      }
     } catch (err) {
       // Never blank the panel on failure
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+
+
+  // Confirm a cart_confirm card: apply the actions and replace card with summary
+  const handleCartConfirm = (msgIndex, actions) => {
+    // Build a lookup map from products passed with this confirm message
+    // (These are server-verified product records from the same response)
+    const allMsgs = [...messages];
+    const confirmMsg = allMsgs[msgIndex];
+    // Build product lookup from the prior assistant message (which carries the product array)
+    // or fall back to searching the current cart
+    const productLookup = {};
+    // Look for products in the messages surrounding this confirm card
+    for (const m of allMsgs) {
+      if (m.products) {
+        for (const p of m.products) productLookup[p.id] = p;
+      }
+    }
+
+    // Apply each action to cart state
+    let summary = [];
+    for (const action of actions) {
+      if (action.action === 'clear') {
+        clearCart();
+        summary.push('Cart cleared.');
+      } else if (action.action === 'add') {
+        const p = productLookup[action.product_id];
+        if (p && p.in_stock) {
+          // addToCart increments by 1; for qty > 1 we call it qty times
+          for (let i = 0; i < action.qty; i++) addToCart(p);
+          summary.push(`Added ${action.qty}x ${p.name}`);
+        }
+      } else if (action.action === 'remove') {
+        const p = productLookup[action.product_id];
+        removeFromCart(action.product_id);
+        summary.push(p ? `Removed ${p.name}` : `Removed item`);
+      } else if (action.action === 'set_qty') {
+        const p = productLookup[action.product_id];
+        // set_qty: remove then add qty times (or just update via updateQty)
+        // We use removeFromCart + addToCart*qty for simplicity
+        removeFromCart(action.product_id);
+        if (p && p.in_stock && action.qty > 0) {
+          for (let i = 0; i < action.qty; i++) addToCart(p);
+          summary.push(`Set ${p.name} to ${action.qty}x`);
+        }
+      }
+    }
+
+    const summaryText = summary.length > 0 ? summary.join(', ') + '.' : 'Cart updated.';
+
+    // Replace the confirm card with a summary message
+    setMessages(prev => prev.map((m, i) =>
+      i === msgIndex ? { ...m, confirmed: true, summaryText } : m
+    ));
+  };
+
+  // Cancel a cart_confirm card
+  const handleCartCancel = (msgIndex) => {
+    setMessages(prev => prev.map((m, i) =>
+      i === msgIndex ? { ...m, confirmed: false } : m
+    ));
   };
 
   const submitRequest = async () => {
@@ -2427,7 +2533,7 @@ function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder, open, setOp
                 <div style={{ fontWeight: "bold", fontSize: "15px" }}>EB AI</div>
                 <div style={{ fontSize: "12px", opacity: 0.85 }}>
                   {assistantMode === 'live'
-                    ? "Ask me what you need. I'll find it and you can add it to your cart in one tap."
+                    ? "Tell me what you need - I can add items to your cart for you. Tap Confirm to apply changes."
                     : "I can help you find products by name and check your order status."}
                 </div>
               </div>
@@ -2443,7 +2549,7 @@ function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder, open, setOp
                 <div style={{ fontWeight: "600", marginBottom: "6px" }}>Hi! I'm EB AI.</div>
                 <div style={{ marginBottom: "14px", fontSize: "13px" }}>
                   {assistantMode === 'live'
-                    ? "Ask me what you need. I'll find it and you can add it to your cart in one tap."
+                    ? "Tell me what you need - I can add items to your cart for you. Tap Confirm to apply changes."
                     : "I can help you find products by name and check your order status."}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "7px", textAlign: "left" }}>
@@ -2466,13 +2572,89 @@ function AIChatBubble({ addToCart, setCurrentView, setSelectedOrder, open, setOp
                   <div className="ai-msg-user">
                     <span>{m.content}</span>
                   </div>
+                ) : m.type === 'cart_confirm' ? (
+                  /* --- Cart confirmation card --- */
+                  <div className="ai-msg-bot">
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "3px" }}>
+                      <img src="/logo.png" alt="" aria-hidden="true" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "3px" }} />
+                      <span style={{ fontSize: "11px", color: "#92400E", fontWeight: "600" }}>EB AI</span>
+                    </div>
+                    {m.confirmed === null ? (
+                      /* Pending: show confirm card */
+                      <div className="ai-cart-confirm-card">
+                        <div className="ai-cart-confirm-heading">
+                          {m.cart_actions.some(a => a.action === 'clear') ? 'Clear cart?' :
+                           m.cart_actions.some(a => a.action === 'remove' || a.action === 'set_qty') ? 'Update cart?' :
+                           'Add to cart?'}
+                        </div>
+                        <div className="ai-cart-confirm-items">
+                          {m.cart_actions.map((action, ai) => {
+                            // Look up product from messages
+                            const allProducts = messages.flatMap(msg => msg.products || []);
+                            const product = allProducts.find(p => p.id === action.product_id);
+                            if (action.action === 'clear') {
+                              return (
+                                <div key={ai} className="ai-cart-confirm-item">
+                                  <span>Clear all items from cart</span>
+                                </div>
+                              );
+                            }
+                            if (!product) return null;
+                            const linePrice = product.price * (action.qty || 1);
+                            return (
+                              <div key={ai} className="ai-cart-confirm-item">
+                                <span className="ai-cart-confirm-item-name">{product.name}</span>
+                                {action.qty && <span className="ai-cart-confirm-item-qty">x{action.qty}</span>}
+                                <span className="ai-cart-confirm-item-price">{formatPriceWithUnit(product.price, product.unit)}</span>
+                                {action.qty && <span className="ai-cart-confirm-item-sub">{formatPrice(linePrice)}</span>}
+                                <span className="ai-cart-confirm-item-badge">{action.action}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="ai-cart-confirm-btns">
+                          <button
+                            className="btn btn-green"
+                            style={{ flex: 1, padding: "9px 14px", fontSize: "14px" }}
+                            onClick={() => handleCartConfirm(i, m.cart_actions)}
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            className="btn btn-outline"
+                            style={{ flex: 1, padding: "9px 14px", fontSize: "14px" }}
+                            onClick={() => handleCartCancel(i)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : m.confirmed === true ? (
+                      /* Confirmed: show summary */
+                      <div className="ai-cart-confirmed">
+                        <span>Done. {m.summaryText}</span>
+                        <button
+                          className="ai-tell-btn"
+                          style={{ marginTop: "6px", display: "block" }}
+                          onClick={() => { setOpen(false); setCurrentView('cart'); }}
+                        >
+                          View Cart
+                        </button>
+                      </div>
+                    ) : (
+                      /* Cancelled */
+                      <span className="ai-bubble-text">No changes made.</span>
+                    )}
+                  </div>
                 ) : (
                   <div className="ai-msg-bot">
                     <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "3px" }}>
                       <img src="/logo.png" alt="" aria-hidden="true" style={{ width: "18px", height: "18px", objectFit: "contain", borderRadius: "3px" }} />
                       <span style={{ fontSize: "11px", color: "#92400E", fontWeight: "600" }}>EB AI</span>
                     </div>
-                    <span className="ai-bubble-text">{m.content}</span>
+                    {/* Render reply as plain text with white-space: pre-wrap. stripMarkdown removes
+                        any residual formatting markers. Never uses dangerouslySetInnerHTML. */}
+                    <span className="ai-bubble-text" style={{ whiteSpace: 'pre-wrap' }}>{stripMarkdown(m.content)}</span>
 
                     {/* Real product cards — only IDs verified server-side */}
                     {m.products?.length > 0 && (

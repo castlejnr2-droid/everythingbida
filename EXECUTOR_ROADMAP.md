@@ -26,6 +26,27 @@ Sync env vars through the Railway dashboard UI or `railway variables set KEY=VAL
 
 ---
 
+## Phase 16 — Cart actions, confirm-before-apply UI, plain-text rendering (2026-09-11)
+
+Backend commit: TBD | Frontend commit: TBD
+
+### What changed
+- **cart_actions JSON contract**: assistant route now returns optional `cart_actions` array alongside `reply`, `products`, `assistant_mode`. Each action: `{action, product_id, qty}`.
+- **Server-side guards** (`validateCartActions`): product_id cross-checked against catalogIdSet; discard if not found; qty clamped 1-99; clear action exempt.
+- **System prompt extensions**: Rule 8 (when to populate cart_actions, negation handling); Rule 9 (plain text, no markdown, no em dashes).
+- **Em dash sanitiser** (`sanitiseReply`): U+2014->", ", U+2013->"-", "--"->"-". Applied to all model replies before returning.
+- **Honest empty-state**: `emptyProductsNote` and `emptyLocationsNote` injected at request time when catalog/locations are empty. Stub mode also updated.
+- **Confirm-before-apply UI**: `cart_confirm` message type inserted when cart_actions present. Card shows action, product name, qty, price. Confirm/Cancel buttons. Prices from DB only.
+- **Plain-text rendering**: `stripMarkdown()` + `white-space: pre-wrap` on all assistant replies. No dangerouslySetInnerHTML.
+- **Subtitle copy**: Live mode subtitle updated to include "Tap Confirm to apply changes." Stub variant unchanged.
+
+### State (2026-09-11)
+- No migration needed (no schema changes)
+- cart_actions validated server-side before reaching client
+- Confirm-before-apply: customer must tap Confirm before any cart mutation
+
+---
+
 ## Phase 15 — Unit field, CORS fix, categories pending (2026-09-10)
 
 Backend commit: TBD | Frontend commit: TBD
