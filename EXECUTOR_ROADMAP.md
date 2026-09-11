@@ -28,7 +28,7 @@ Sync env vars through the Railway dashboard UI or `railway variables set KEY=VAL
 
 ## Phase 16 — Cart actions, confirm-before-apply UI, plain-text rendering (2026-09-11)
 
-Backend commit: TBD | Frontend commit: TBD
+Backend commit: 943942f | Frontend commit: 0da8a8a
 
 ### What changed
 - **cart_actions JSON contract**: assistant route now returns optional `cart_actions` array alongside `reply`, `products`, `assistant_mode`. Each action: `{action, product_id, qty}`.
